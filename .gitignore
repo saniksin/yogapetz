@@ -1,0 +1,24 @@
+# Исключение конфигурационных файлов аккаунтов и прокси
+accounts/accounts.txt
+accounts/proxys.txt
+
+# Игнорирование виртуальной среды Python
+venv/
+
+# Лог-файлы и текстовые файлы с информацией об аккаунтах
+log.txt
+bad_token.txt
+locked.txt
+suspended.txt
+
+# Исключение JSON-файлов с задачами
+status/token_db/tasks.json
+
+# Игнорирование скомпилированных файлов Python
+__pycache__/
+
+# Игнорирование всех .pyc файлов в проекте
+*.pyc
+
+# Файл с тестами
+test.py

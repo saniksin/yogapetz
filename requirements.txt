@@ -1,0 +1,4 @@
+better-automation==2.0.2
+loguru==0.7.2
+aiofiles==23.2.1
+pillow==10.2.0
