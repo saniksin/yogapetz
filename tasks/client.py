@@ -2,10 +2,11 @@ import sys
 import traceback
 import random
 import io
-from PIL import Image
+from json.decoder import JSONDecodeError
 
 import asyncio
 import aiofiles
+from PIL import Image
 from better_automation.twitter import TwitterClient, TwitterAccount
 from better_automation.twitter.errors import Forbidden, HTTPException
 
@@ -136,7 +137,12 @@ class TwitterTasksCompleter:
                         await self.write_problem_status()
                     
                     continue
+                
                 logger.error(f'Неизвестная ошибка: {err}')
+
+            except JSONDecodeError:
+                logger.error(f'{self.account_token} | Ошибка с получением ответа от API')
+                continue
 
     async def get_name(self):
         """ Возвращает никнейм пользователя, не username """

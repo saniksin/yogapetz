@@ -32,6 +32,8 @@ async def process_tasks(file_path, source_data):
                     {"type": "retweet", "tweet_id": "1741493362858062271", "status": "pending"},
                     {"type": "retweet", "tweet_id": "1742132803142299950", "status": "pending"},
                     {"type": "retweet", "tweet_id": "1742530102221771001", "status": "pending"},
+                    {"type": "retweet", "tweet_id": "1743249418357194952", "status": "pending"},
+                    {"type": "retweet", "tweet_id": "1743364888586764724", "status": "pending"},
                     {"type": "update_banner", "status": "pending"}
                 ],
                 "proxy": account[proxy]
@@ -40,18 +42,17 @@ async def process_tasks(file_path, source_data):
         if tasks[account[token]]['proxy'] != account[proxy]:
             tasks[account[token]]['proxy'] = account[proxy]
 
-        await async_write_json(tasks, file_path)
+    for token, data in tasks.items():
+        if len(data['tasks']) != 9:
+            data['tasks'] += [
+                {"type": "retweet", "tweet_id": "1743249418357194952", "status": "pending"},
+                {"type": "retweet", "tweet_id": "1743364888586764724", "status": "pending"},
+            ]
+
+    await async_write_json(tasks, file_path)
 
     return tasks, len(tasks)
-    # # Выполнение задач
-    # for token, data in tasks.items():
-    #     for task in data['tasks']:
-    #         if task['status'] == 'pending':
-    #             # Выполните задачу в зависимости от её типа
-    #             # Например: await execute_task(task)
-    #             task['status'] = 'completed'
-        
-    #     await async_write_json(tasks, file_path)
+
 
 # Функция для очистки от задач которые не актуальны
 async def clear_complete(db):
@@ -62,5 +63,3 @@ async def clear_complete(db):
                 actual_accounts[token] = data
     
     return actual_accounts
-    print(actual_accounts)
-        

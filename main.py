@@ -19,8 +19,6 @@ async def main():
     with open(PROXYS, 'r', encoding='utf-8-sig') as file:
         proxies_list: list[str] = [row.strip() for row in file]
 
-    logger.info(f'Загружено {len(accounts_list)} аккаунтов / {len(proxies_list)} прокси')
-
     cycled_proxies_list = itertools.cycle(proxies_list) if proxies_list else None
     
     formatted_accounts_list: list = [
@@ -31,6 +29,11 @@ async def main():
     ]
 
     db, len_db = await process_tasks(file_path=DB, source_data=formatted_accounts_list)
+    
+    logger.info(f'Загружено в accounts.txt {len(accounts_list)} аккаунтов \n'
+                f'\t\t\t\t\t\t\tЗагружено в proxys.txt {len(proxies_list)} прокси \n'
+                f'\t\t\t\t\t\t\tЗагружено в базу данных {len_db} токенов \n')
+    
     if len_db == 0 and not formatted_accounts_list:
         logger.error('Вы не добавили токены в файл и в базе данных тоже пусто!')
         sys.exit(1)
@@ -38,7 +41,7 @@ async def main():
     actual_to_work = await clear_complete(db)
     
     if len(actual_to_work) == 0:
-        logger.success('Все аккаунты успешно закончили работу!')
+        logger.success('Все аккаунты успешно закончили работу! Везде статус заданий - сompleted')
         sys.exit(1)
 
     logger.info(f'Аккаунтов c незавершенными задачами: {len(actual_to_work)}')
