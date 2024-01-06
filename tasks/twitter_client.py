@@ -12,7 +12,7 @@ import aiofiles
 from PIL import Image
 from better_automation.twitter import TwitterClient, TwitterAccount
 from better_automation.base import BaseAsyncSession
-from better_automation.twitter.errors import Forbidden, HTTPException
+from better_automation.twitter.errors import Forbidden, HTTPException, Unauthorized
 from bs4 import BeautifulSoup
 from fake_useragent import UserAgent
 
@@ -78,7 +78,12 @@ class TwitterTasksCompleter:
                     self.twitter_client = twitter
                     
                     # Совершаем любое действие чтобы обновить статус аккаунта
-                    await self.get_name()
+                    try:
+                        await self.get_name()
+                    except Unauthorized:
+                        logger.error(f'{self.account_token} | Не удалось авторизироваться по данному токену! Проверьте токен')
+                        await self.write_status(status="Unauthorized")
+                        break
 
                     # Регистрация
                     if not self.register:
@@ -175,6 +180,7 @@ class TwitterTasksCompleter:
 
                             if status:
                                 logger.info(f'{self.account_token} | успешно выполнил breath session')
+                                await self.sleep_after_action()
                             else:
                                 logger.error(f'{self.account_token} | не удалось выполнить breath session')
 
