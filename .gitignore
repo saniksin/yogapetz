@@ -10,6 +10,9 @@ log.txt
 bad_token.txt
 locked.txt
 suspended.txt
+ref_code.txt
+problems.txt
+actual_ref.txt
 
 # Исключение JSON-файлов с задачами
 status/token_db/tasks.json
@@ -22,3 +25,6 @@ __pycache__/
 
 # Файл с тестами
 test.py
+
+# vscode
+.vscode

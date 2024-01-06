@@ -4,3 +4,6 @@ SLEEP_TO = 15
 
 # КОЛ-ВО ПОПЫТОК
 NUMBER_OF_ATTEMPTS = 5
+
+# API Capmonster
+API_KEY = 'xxxxxx'

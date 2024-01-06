@@ -14,16 +14,18 @@ else:
 STATUS_DIR = os.path.join(ROOT_DIR, 'status')
 ACCOUNTS_DIR = os.path.join(ROOT_DIR, 'accounts')
 DB_DIR = os.path.join(STATUS_DIR, 'token_db')
+EXTENSION_DIR = os.path.join(ROOT_DIR, 'extensions')
 
-LOG = os.path.join(STATUS_DIR, 'log.txt')
-SUSPENDED = os.path.join(STATUS_DIR, 'suspended.txt')
-LOCKED = os.path.join(STATUS_DIR, 'locked.txt')
-BAD_TOKEN = os.path.join(STATUS_DIR, 'bad_token.txt')
 ACCOUNTS = os.path.join(ACCOUNTS_DIR, 'accounts.txt')
 PROXYS = os.path.join(ACCOUNTS_DIR, 'proxys.txt')
-BANNER_IMAGE = os.path.join(ACCOUNTS_DIR, 'banner.jpg')
+CODES = os.path.join(ACCOUNTS_DIR, 'ref_code.txt')
+PROBLEMS = os.path.join(STATUS_DIR, 'problems.txt')
+LOG = os.path.join(STATUS_DIR, 'log.txt')
 DB = os.path.join(DB_DIR, 'tasks.json')
+ACTUAL_REF = os.path.join(ACCOUNTS_DIR, 'actual_ref.txt')
 
-IMPORTANT_FILES = [ACCOUNTS, PROXYS, BAD_TOKEN, LOCKED, LOG, SUSPENDED, DB]
+BANNER_IMAGE = os.path.join(ACCOUNTS_DIR, 'banner.jpg')
+
+IMPORTANT_FILES = [ACCOUNTS, PROXYS, CODES, PROBLEMS, LOG, DB, ACTUAL_REF]
 
 logger.add(LOG, format='{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}', level='DEBUG')
