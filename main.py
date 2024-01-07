@@ -6,7 +6,7 @@ import inquirer
 from termcolor import colored
 from inquirer.themes import load_theme_from_dict as loadth
 
-from data.config import ACCOUNTS, PROXYS, CODES, logger, DB, PRIVATE_KEYS, ACTUAL_REF
+from data.config import ACCOUNTS, PROXYS, CODES, logger, DB, PRIVATE_KEYS
 from utils.policy import set_windows_event_loop_policy
 from utils.validate_token import validate_token
 from utils.db_func import process_tasks, clear_complete
@@ -67,7 +67,6 @@ async def main():
     proxies_list: list[str] = get_accounts_info(PROXYS)
     ref_codes: list[str] = get_accounts_info(CODES)
     private_keys: list[str] = get_accounts_info(PRIVATE_KEYS)
-    spare_ref_codes: list[str] = get_accounts_info(ACTUAL_REF)
 
     cycled_proxies_list = itertools.cycle(proxies_list) if proxies_list else None
     
@@ -75,7 +74,7 @@ async def main():
         {
             'account_token': current_account,
             'account_proxy': next(cycled_proxies_list) if cycled_proxies_list else None,
-            'ref_code': ref_codes.pop(0) if ref_codes else None,
+            'ref_code': None,
             'private_key': private_keys.pop(0) if private_keys else None
         } for current_account in accounts_list
     ]
@@ -104,7 +103,7 @@ async def main():
         semaphore = asyncio.Semaphore(ASYNC_SEMAPHORE)
         tasks = []
         for token, data in actual_to_work.items():
-            task = asyncio.create_task(start_limited_task(semaphore, token, data, 1, spare_ref_codes=spare_ref_codes))
+            task = asyncio.create_task(start_limited_task(semaphore, token, data, 1, spare_ref_codes=ref_codes))
             tasks.append(task)
 
         await asyncio.wait(tasks)

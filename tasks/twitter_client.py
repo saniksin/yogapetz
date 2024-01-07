@@ -67,6 +67,8 @@ class TwitterTasksCompleter:
         }
         await async_write_json(actual_db, DB)
 
+    def get_reserv_codes(self):
+        self.ref_code = self.spare_ref_codes.pop(0) if self.spare_ref_codes else None
 
     async def start_tasks(self, option: int):
         """ Стартуем задачи """
@@ -98,22 +100,25 @@ class TwitterTasksCompleter:
                         self.twitter_account_status = "BAD_TOKEN"
                         await self.write_to_db()
                         await self.write_status(status="Unauthorized")
-                        break
+                        brea
 
                     if option == 1:
                         # Регистрация
                         if not self.register:
+                            if not self.ref_code:
+                                self.get_reserv_codes()
                             logger.info(f'{self.twitter_account} | Начинаю регистрацию')
                             result = await self.registration()
                             self.refresh_token = result['refreshToken']
                             self.id_token = result['idToken']
                             result = await self.send_invite_code()
                             if 'не актульный' in str(result):
-                                self.ref_code = self.spare_ref_codes.pop(0) if self.spare_ref_codes else None
+                                self.get_reserv_codes()
                                 if not self.ref_code:
                                     await self.write_status('REF_CODE_PROBLEM')
                                     break
-                                
+                                msg = (f'{self.twitter_account} | взял запасной реф код, осталось запасных актуальных реф кодов {len(self.spare_ref_codes)}')
+                                logger.warning(msg)
                                 continue
                             if result:
                                 logger.info(f'{self.twitter_account} | Успешно зарегистрирован или был зарегистрован раньше')
@@ -270,9 +275,13 @@ class TwitterTasksCompleter:
                     elif option == 4:
                         await self.login()
                         account_data = await self.get_account_data()
-                        ref_codes = [code_data['code'] for code_data in account_data['referralInfo']['myReferralCodes']]
+                        if not account_data['referralInfo']['myReferralCodes']:
+                            await self.generate_invite_codes()
+                            logger.warning(f'{self.twitter_account} | не удалось получить реф. коды. Пробую сгенирировать...')
+                            continue
+                        ref_codes = [code_data['code'] for code_data in account_data['referralInfo']['myReferralCodes'] \
+                                    if 'usedAt' not in code_data]
                         await self.write_status(ref_codes, ACTUAL_REF)
-                    
                     break
 
             except Forbidden as err:
@@ -319,13 +328,16 @@ class TwitterTasksCompleter:
 
     async def write_status(self, status, path=PROBLEMS):
         """ Записывает текщий статус проблемного токена в соответсвующий файл """
-        
-        async with aiofiles.open(file=path, mode='a', encoding='utf-8-sig') as f:
-            if path != PROBLEMS:
-                for item in status:
-                    await f.write(f'{item}\n')
-            else:
-                await f.write(f'{self.account_token} | {self.account_proxy} | {self.ref_code} | {status}\n')
+        try:
+            async with aiofiles.open(file=path, mode='a', encoding='utf-8-sig') as f:
+                if path != PROBLEMS:
+                    for item in status:
+                        await f.write(f'{item}\n')
+                else:
+                    await f.write(f'{self.account_token} | {self.account_proxy} | {self.ref_code} | {status}\n')
+            await asyncio.sleep(0.25)
+        except OSError:
+            await self.write_status(status, path)
 
     async def sleep_after_action(self):
         """ Сон между действиями"""
@@ -563,16 +575,30 @@ class TwitterTasksCompleter:
         })
 
     async def get_account_data(self):
+        version = self.user_agent.split('Chrome/')[1].split('.')[0]
         tries = 0
         while tries < 2:
-            platform = ['macOS', 'Windows', 'Linux']
-
+            
             url = 'https://api.gm.io/ygpz/me'
+
             headers = {
-                "Sec-Ch-Ua": 'Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+                'authority': 'api.gm.io',
+                'accept': '*/*',
+                'accept-language': 'en-US,en;q=0.9',
+                'access-control-request-headers': 'authorization, content-type',
+                'access-control-request-method': 'GET',
+                "Sec-Ch-Ua": f'Not_A Brand";v="8", "Chromium";v="{version}", "Google Chrome";v="{version}"',
                 "Sec-Ch-Ua-Mobile": "?0",
-                "Sec-Ch-Ua-Platform": f'"{platform}"',
-                "Referer": "https://well3.com/"
+                'cache-control': 'no-cache',
+                'origin': 'https://well3.com',
+                'pragma': 'no-cache',
+                'referer': 'https://well3.com/',
+                'sec-fetch-dest': 'empty',
+                'sec-fetch-mode': 'cors',
+                'sec-fetch-site': 'cross-site',
+                "Sec-Ch-Ua-Platform": f'"{self.user_platform}"',
+                "Referer": "https://well3.com/",
+                'user-agent': self.user_agent,
             }
 
             result = await self.async_session.get(
@@ -711,7 +737,6 @@ class TwitterTasksCompleter:
         }
 
         url = 'https://api.gm.io/ygpz/complete-breath-session'
-        #headers = self.get_headers()
         headers['content-type'] = None
 
         res = await self.async_session.post(
@@ -968,6 +993,36 @@ class TwitterTasksCompleter:
             logger.success(msg)
         else:
             logger.error(msg)
+
+    async def generate_invite_codes(self):
+        headers = self.get_headers()
+        url = "https://api.gm.io/ygpz/generate-codes"
+        other_response = await self.async_session.post(
+            url=url,
+            json={},
+            headers=headers
+        )
+        
+        retry = 0
+        while retry < 10:
+            if other_response.status_code == 400 or other_response.status_code == 401:
+                result = await self.registration()
+                self.refresh_token = result['refreshToken']
+                self.id_token = result['idToken']
+                headers = self.get_headers()
+                await self.write_to_db()
+                other_response = await self.async_session.post(
+                    url=url,
+                    json={},
+                    headers=headers
+                )
+                answer = other_response.json()
+                retry += 1
+            else:
+                break
+        if other_response.status_code == 401 or other_response.status_code == 400:
+            return False
+        return True
 
 
 async def start_twitter_task(token: str, data: dict, сhoise: int, spare_ref_codes: list | None) -> bool:

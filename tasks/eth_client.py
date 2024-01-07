@@ -7,8 +7,6 @@ from web3 import Web3
 from web3.eth import AsyncEth
 from eth_account.signers.local import LocalAccount
 
-from data.config import logger
-
 from data.models import (
     Network,
     Networks,
