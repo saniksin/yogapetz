@@ -2,7 +2,6 @@ better-automation==2.0.2
 loguru==0.7.2
 aiofiles==23.2.1
 pillow==10.2.0
-#playwright==1.40.0
 beautifulsoup4==4.12.2
 fake-useragent==1.4.0
 inquirer==3.2.0

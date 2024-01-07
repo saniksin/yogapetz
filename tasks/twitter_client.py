@@ -24,7 +24,6 @@ from data.settings import SLEEP_FROM, SLEEP_TO, NUMBER_OF_ATTEMPTS, API_KEY, MIN
 from data.config import logger, PROBLEMS, BANNER_IMAGE, DB, ACTUAL_REF, WELL_ABI
 from exeptions.exeptions import WrongCaptcha
 from utils.db_func import async_write_json, async_read_json
-from tasks.playwright_client import PlaywrightClient
 from data.models import Networks, CONTRACT_ADDRESS
 from tasks.eth_client import EthClient
 
@@ -49,12 +48,6 @@ class TwitterTasksCompleter:
 
         self.twitter_client: TwitterClient | None = None
         self.twitter_account: TwitterAccount = TwitterAccount(token)
-        self.playwright_client: PlaywrightClient = PlaywrightClient(
-            twitter_account=self.twitter_account,
-            proxy=data['proxy'],
-            ref_code=data['ref_code'],
-            private_key=data['private_key']
-        )
     
     async def write_to_db(self):
         actual_db = await async_read_json(DB)
@@ -81,7 +74,7 @@ class TwitterTasksCompleter:
         # Количество попыток в случае неудачи
         for num, _ in enumerate(range(NUMBER_OF_ATTEMPTS), start=1):
             try:
-                logger.info(f'{self.account_token} | Попытка {num}')
+                logger.info(f'{self.twitter_account} | Попытка {num}')
                 async with TwitterClient(
                     account=self.twitter_account,
                     proxy=self.account_proxy, 
@@ -93,24 +86,24 @@ class TwitterTasksCompleter:
                     try:
                         await self.get_name()
                     except Unauthorized:
-                        logger.error(f'{self.account_token} | Не удалось авторизироваться по данному токену! Проверьте токен')
+                        logger.error(f'{self.twitter_account} | Не удалось авторизироваться по данному токену! Проверьте токен')
                         await self.write_status(status="Unauthorized")
                         break
 
                     if option == 1:
                         # Регистрация
                         if not self.register:
-                            logger.info(f'{self.account_token} | Начинаю регистрацию')
+                            logger.info(f'{self.twitter_account} | Начинаю регистрацию')
                             result = await self.registration()
                             self.refresh_token = result['refreshToken']
                             self.id_token = result['idToken']
                             result = await self.send_invite_code()
                             if result:
-                                logger.info(f'{self.account_token} | Успешно зарегистрирован или был зарегистрован раньше')
+                                logger.info(f'{self.twitter_account} | Успешно зарегистрирован или был зарегистрован раньше')
                                 self.register = True
                                 await self.write_to_db()
                             else:
-                                logger.error(f'{self.account_token} | Произошла ошибка при регистрации')
+                                logger.error(f'{self.twitter_account} | Произошла ошибка при регистрации')
                                 if num == NUMBER_OF_ATTEMPTS:
                                     await self.write_status(status='REF_CODE_PROBLEM')
                                 continue
@@ -135,11 +128,11 @@ class TwitterTasksCompleter:
                                             changed = True
                                     except HTTPException as err:
                                         if 'already retweeted' in str(err):
-                                            logger.warning(f'{self.account_token} | уже успешно репостнул {task["tweet_id"]}')
+                                            logger.warning(f'{self.twitter_account} | уже успешно репостнул {task["tweet_id"]}')
                                             self.account_tasks[num]['status'] = 'completed'
                                             changed = True
                                         elif 'already_favorited' in str(err):
-                                            logger.warning(f'{self.account_token} | уже успешно лайкнул {task["tweet_id"]}')
+                                            logger.warning(f'{self.twitter_account} | уже успешно лайкнул {task["tweet_id"]}')
                                             self.account_tasks[num]['status'] = 'completed'
                                             changed = True
                                         else:
@@ -150,7 +143,7 @@ class TwitterTasksCompleter:
                                     media_id = await twitter.upload_image(image=image_bytes)
                                     status = await twitter.update_profile_banner(media_id=media_id)
                                     if status:
-                                        logger.success(f'{self.account_token} | Баннер был успешно установлен!')
+                                        logger.success(f'{self.twitter_account} | Баннер был успешно установлен!')
                                         self.account_tasks[num]['status'] = 'completed'
                                         changed = True
 
@@ -187,17 +180,16 @@ class TwitterTasksCompleter:
                                     if value['nextAvailableFrom'] < current_time:
                                         status = await self.complete_breath_session()
                                     else:
-                                        logger.info(f"{self.account_token} | ближайшая breath session { \
-                                            formatted_time}.")
+                                        logger.info(f"{self.twitter_account} | ближайшая breath session {formatted_time}.")
                                         break
                                 else:
                                     status = await self.complete_breath_session()
 
                                 if status:
-                                    logger.info(f'{self.account_token} | успешно выполнил breath session')
+                                    logger.info(f'{self.twitter_account} | успешно выполнил breath session')
                                     await self.sleep_after_action()
                                 else:
-                                    logger.error(f'{self.account_token} | не удалось выполнить breath session')
+                                    logger.error(f'{self.twitter_account} | не удалось выполнить breath session')
 
                         for name, value in account_data['ygpzQuesting']['info']['specialProgress'].items():
                                 
@@ -209,18 +201,18 @@ class TwitterTasksCompleter:
                             if task_exists:
                                 for task in self.platform:
                                     if task['task'] == name and task['status'] != "completed":
-                                        logger.info(f'{self.account_token} | подтверждение задачи {name}')
+                                        logger.info(f'{self.twitter_account} | подтверждение задачи {name}')
                                         status = await self.complete_other_tasks(task_name=name)
                                         if status:
-                                            logger.info(f'{self.account_token} | успешно подтвердил {name}')
+                                            logger.info(f'{self.twitter_account} | успешно подтвердил {name}')
                                             task['status'] = 'completed'
                                             await self.write_to_db()
                                         else:
-                                            logger.error(f'{self.account_token} | не смог подтвердить задачу {name}')
+                                            logger.error(f'{self.twitter_account} | не смог подтвердить задачу {name}')
                             else:
                                 logger.error(f'Задача {name} не найдена в текущем списке задач!')
                     
-                        logger.success(f'{self.account_token} | закончил все задания задания с твиттером')
+                        logger.success(f'{self.twitter_account} | закончил все задания задания с твиттером')
 
                         break
                     elif option == 3:
@@ -252,9 +244,6 @@ class TwitterTasksCompleter:
 
                             await self.start_daily_quest(nonce, signature)
                             
-                        # регистрация с помощью playwright (неактульна)
-                        #self.start_master_quests_tx = await self.playwright_client.claim()
-                            
                     elif option == 4:
                         await self.login()
                         account_data = await self.get_account_data()
@@ -265,7 +254,7 @@ class TwitterTasksCompleter:
 
             except Forbidden as err:
                 if self.twitter_account.status != 'GOOD':
-                    logger.error(f'{self.account_token} | Возникла проблема с аккаунтом! Текущий статус аккаунта = {self.twitter_account.status}')
+                    logger.error(f'{self.twitter_account} | Возникла проблема с аккаунтом! Текущий статус аккаунта = {self.twitter_account.status}')
                     if self.twitter_account.status == 'BAD_TOKEN':
                         logger.warning(f'Неверный токен - {self.twitter_account}')
                         await self.write_status(status='BAD_TOKEN')
@@ -286,7 +275,7 @@ class TwitterTasksCompleter:
                 continue
 
             except JSONDecodeError:
-                logger.error(f'{self.account_token} | Ошибка с получением ответа от API')
+                logger.error(f'{self.twitter_account} | Ошибка с получением ответа от API')
                 continue
 
             except RequestsError:
@@ -317,7 +306,7 @@ class TwitterTasksCompleter:
         """ Сон между действиями"""
         
         sleep_time = random.randint(SLEEP_FROM, SLEEP_TO)
-        logger.debug(f'{self.account_token} | Сон после действия: {sleep_time} секунд')
+        logger.debug(f'{self.twitter_account} | Сон после действия: {sleep_time} секунд')
         await asyncio.sleep(sleep_time)
 
     async def follow_quest(self, username: str):
@@ -325,7 +314,7 @@ class TwitterTasksCompleter:
         user_info = await self.twitter_client.request_user_data(username)
         status = await self.twitter_client.follow(user_id=user_info.id)
         if status:
-            logger.info(f'{self.account_token} | Успешно подписался на {username}')
+            logger.info(f'{self.twitter_account} | Успешно подписался на {username}')
             return True
         return False
 
@@ -334,7 +323,7 @@ class TwitterTasksCompleter:
         tweet_id = await self.twitter_client.repost(tweet_id=tweet_id)
         like_status = await self.twitter_client.like(tweet_id=tweet_id)
         if like_status and tweet_id:
-            logger.info(f'{self.account_token} | Успешно лайкнул и репостнул {tweet_id}')
+            logger.info(f'{self.twitter_account} | Успешно лайкнул и репостнул {tweet_id}')
             return True
         return False
 
@@ -353,14 +342,14 @@ class TwitterTasksCompleter:
                 name=self.twitter_account.name)
 
             if not change_twitter_name_result:
-                logger.error(f'{self.account_token} | Не удалось изменить имя пользователя')
+                logger.error(f'{self.twitter_account} | Не удалось изменить имя пользователя')
             
             else:
-                logger.success(f'{self.account_token} | {self.twitter_account.name} имя было успешно изменено на {new_name}')
+                logger.success(f'{self.twitter_account} | {self.twitter_account.name} имя было успешно изменено на {new_name}')
 
             return change_twitter_name_result
         else:
-            logger.warning(f'{self.account_token} | В имени аккаунта уже есть ❤️ $WELL, текущее имя - {self.twitter_account.name}')
+            logger.warning(f'{self.twitter_account} | В имени аккаунта уже есть ❤️ $WELL, текущее имя - {self.twitter_account.name}')
             return True
         
     async def read_image_as_base64_encoded_bytes(self, file_path):
@@ -514,7 +503,7 @@ class TwitterTasksCompleter:
         
         response_json = response.json()
         if response_json.get("message") == 'Already has referrer':
-            logger.warning(f'{self.account_token} | Уже был зарегистрирован')
+            logger.warning(f'{self.twitter_account} | Уже был зарегистрирован')
             return True
 
         if not response_json.get("generated", False) or response.status_code != 200:
