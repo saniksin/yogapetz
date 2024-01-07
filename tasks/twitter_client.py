@@ -100,7 +100,7 @@ class TwitterTasksCompleter:
                             self.refresh_token = result['refreshToken']
                             self.id_token = result['idToken']
                             result = await self.send_invite_code()
-                            if 'не актульный' in result:
+                            if 'не актульный' in str(result):
                                 await self.write_status('REF_CODE_PROBLEM')
                                 break
                             if result:
