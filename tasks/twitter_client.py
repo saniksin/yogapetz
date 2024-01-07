@@ -42,6 +42,8 @@ class TwitterTasksCompleter:
         self.platform = data['platform']
         self.private_key = data['private_key']
         self.twitter_account_status = data['twitter_account_status']
+        self.user_agent = UserAgent().chrome
+        self.user_platform = random.choice(['macOS', 'Windows', 'Linux'])
         
         # Рандомизируем список задач
         random.shuffle(self.account_tasks)
@@ -463,9 +465,7 @@ class TwitterTasksCompleter:
         return response.json()
 
     def get_headers(self):
-        user_agent = UserAgent().chrome
-        version = user_agent.split('Chrome/')[1].split('.')[0]
-        platform = ['macOS', 'Windows', 'Linux']
+        version = self.user_agent.split('Chrome/')[1].split('.')[0]
 
         headers = {
             'authority': 'api.gm.io',
@@ -479,11 +479,11 @@ class TwitterTasksCompleter:
             'referer': 'https://well3.com/',
             'sec-ch-ua': f'"Not_A Brand";v="8", "Chromium";v="{version}"',
             'sec-ch-ua-mobile': '?0',
-            'sec-ch-ua-platform': f'"{platform}"',
+            'sec-ch-ua-platform': f'"{self.user_platform}"',
             'sec-fetch-dest': 'empty',
             'sec-fetch-mode': 'cors',
             'sec-fetch-site': 'cross-site',
-            'user-agent': user_agent,
+            'user-agent': self.user_agent,
         }
 
         return headers
@@ -667,7 +667,6 @@ class TwitterTasksCompleter:
         return True
 
     async def complete_breath_session(self):
-        user_agent = UserAgent().chrome
 
         headers = {
             'authority': 'api.gm.io',
@@ -682,7 +681,7 @@ class TwitterTasksCompleter:
             'sec-fetch-dest': 'empty',
             'sec-fetch-mode': 'cors',
             'sec-fetch-site': 'cross-site',
-            'user-agent': user_agent,
+            'user-agent': self.user_agent,
         }
 
         url = 'https://api.gm.io/ygpz/complete-breath-session'
@@ -716,7 +715,6 @@ class TwitterTasksCompleter:
         return True
     
     async def complete_other_tasks(self, task_name):
-        user_agent = UserAgent().chrome
 
         url = f'https://api.gm.io/ygpz/claim-exp/{task_name}'
         headers = {
@@ -732,7 +730,7 @@ class TwitterTasksCompleter:
             'sec-fetch-dest': 'empty',
             'sec-fetch-mode': 'cors',
             'sec-fetch-site': 'cross-site',
-            'user-agent': user_agent,
+            'user-agent': self.user_agent,
         }
 
         res = await self.async_session.post(
@@ -772,10 +770,7 @@ class TwitterTasksCompleter:
         
         # Подписываем сообщение
         signed_message = eth_client.account.sign_message(message_encoded)
-
-        user_agent = UserAgent().chrome
-        version = user_agent.split('Chrome/')[1].split('.')[0]
-        platform = ['macOS', 'Windows', 'Linux']
+        version = self.user_agent.split('Chrome/')[1].split('.')[0]
 
         url = 'https://api.gm.io/ygpz/link-wallet'
         headers = {
@@ -788,11 +783,11 @@ class TwitterTasksCompleter:
             'referer': 'https://well3.com/',
             'sec-ch-ua': f'"Not_A Brand";v="8", "Chromium";v="{version}", "Google Chrome";v="{version}"',
             'sec-ch-ua-mobile': '?0',
-            'sec-ch-ua-platform': f'"{platform}"',
+            'sec-ch-ua-platform': f'"{self.user_platform}"',
             'sec-fetch-dest': 'empty',
             'sec-fetch-mode': 'cors',
             'sec-fetch-site': 'cross-site',
-            'user-agent': user_agent,
+            'user-agent': self.user_agent,
         }
         json = {
             'address': eth_client.account.address,
