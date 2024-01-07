@@ -99,7 +99,7 @@ async def main():
             logger.success('Все аккаунты успешно закончили работу! Везде статус заданий - сompleted')
             sys.exit(1)
 
-        logger.info(f'{len(actual_to_work)} аккаунтов еще не выполнили начальные задачи.. Начинаем')
+        logger.info(f'{len(actual_to_work)} аккаунтов еще не выполнили начальные задачи.. Начинаем. Игнорируется SUSPENDED и BAD_TOKEN')
         
         semaphore = asyncio.Semaphore(ASYNC_SEMAPHORE)
         tasks = []

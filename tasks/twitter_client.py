@@ -72,6 +72,11 @@ class TwitterTasksCompleter:
         """ Стартуем задачи """
 
         if self.twitter_account_status == "SUSPENDED":
+            await self.write_status("SUSPENDED")
+            return
+        
+        if self.twitter_account_status == "BAD_TOKEN":
+            await self.write_status("BAD_TOKEN")
             return
 
         # Количество попыток в случае неудачи
@@ -90,6 +95,8 @@ class TwitterTasksCompleter:
                         await self.get_name()
                     except Unauthorized:
                         logger.error(f'{self.twitter_account} | Не удалось авторизироваться по данному токену! Проверьте токен')
+                        self.twitter_account_status = "BAD_TOKEN"
+                        await self.write_to_db()
                         await self.write_status(status="Unauthorized")
                         break
 
@@ -276,6 +283,8 @@ class TwitterTasksCompleter:
                     logger.error(f'{self.twitter_account} | Возникла проблема с аккаунтом! Текущий статус аккаунта = {self.twitter_account.status}')
                     if self.twitter_account.status == 'BAD_TOKEN':
                         logger.warning(f'Неверный токен - {self.twitter_account}')
+                        self.twitter_account_status = "BAD_TOKEN"
+                        await self.write_to_db()
                         await self.write_status(status='BAD_TOKEN')
                         break
                     elif self.twitter_account.status == 'SUSPENDED':
