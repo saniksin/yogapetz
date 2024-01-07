@@ -863,16 +863,16 @@ class TwitterTasksCompleter:
                 status = receipts.get("status")
                 if status == 1:
                     return (f"{self.twitter_account} | успешно сминтили книгу | tx hash: "
-                            f"https://opbnb.bscscan.com/tx/{tx_hash}!")
+                            f"https://opbnb.bscscan.com/tx/{tx_hash}")
                 elif status is None:
                     await asyncio.sleep(0.3)
                 else:
                     return (f"{self.twitter_account} | не удалось сминтить книгу | tx hash: "
-                            f"https://opbnb.bscscan.com/tx/{tx_hash}!")
+                            f"https://opbnb.bscscan.com/tx/{tx_hash}")
             except TransactionNotFound:
                 if time.time() - start_time > max_wait_time:
-                    return (f"Failed deploy | {self.eth_client.account.address} | "
-                            f"status: successfully | https://scrollscan.com/tx/{tx_hash}!")
+                   return (f"{self.twitter_account} | не удалось сминтить книгу | tx hash: "
+                            f"https://opbnb.bscscan.com/tx/{tx_hash}")
                 await asyncio.sleep(3)
 
 
