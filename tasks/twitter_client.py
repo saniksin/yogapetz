@@ -30,7 +30,7 @@ from tasks.eth_client import EthClient
 
 class TwitterTasksCompleter:
         
-    def __init__(self, token, data: dict) -> None:
+    def __init__(self, token, data: dict, spare_ref_codes) -> None:
         self.account_token: str = token
         self.account_tasks: list = data['tasks']
         self.account_proxy: str | None = data['proxy']
@@ -44,7 +44,8 @@ class TwitterTasksCompleter:
         self.twitter_account_status = data['twitter_account_status']
         self.user_agent = UserAgent().chrome
         self.user_platform = random.choice(['macOS', 'Windows', 'Linux'])
-        
+        self.spare_ref_codes = spare_ref_codes
+
         # Рандомизируем список задач
         random.shuffle(self.account_tasks)
 
@@ -101,8 +102,15 @@ class TwitterTasksCompleter:
                             self.id_token = result['idToken']
                             result = await self.send_invite_code()
                             if 'не актульный' in str(result):
-                                await self.write_status('REF_CODE_PROBLEM')
-                                break
+                                print('я тут')
+                                print(len(self.spare_ref_codes))
+                                self.ref_code = self.spare_ref_codes.pop(0) if self.spare_ref_codes else None
+                                print(not self.ref_code)
+                                if not self.ref_code:
+                                    await self.write_status('REF_CODE_PROBLEM')
+                                    break
+                                
+                                continue
                             if result:
                                 logger.info(f'{self.twitter_account} | Успешно зарегистрирован или был зарегистрован раньше')
                                 self.register = True
@@ -956,9 +964,9 @@ class TwitterTasksCompleter:
             logger.error(msg)
 
 
-async def start_twitter_task(token: str, data: dict, сhoise: int) -> bool:
+async def start_twitter_task(token: str, data: dict, сhoise: int, spare_ref_codes: list | None) -> bool:
     try:
-        await TwitterTasksCompleter(token=token, data=data).start_tasks(сhoise)
+        await TwitterTasksCompleter(token=token, data=data, spare_ref_codes=spare_ref_codes).start_tasks(сhoise)
     except KeyboardInterrupt:
         sys.exit(1)
 

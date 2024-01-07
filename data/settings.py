@@ -8,9 +8,6 @@ NUMBER_OF_ATTEMPTS = 10
 # API Capmonster
 API_KEY = 'xxxxxx'
 
-# Количество потов для минта нфт
-THREADS = 10
-
 # Количество акков одновременно в асинк запросах
 ASYNC_SEMAPHORE = 25
 

@@ -5,20 +5,19 @@ import asyncio
 import inquirer
 from termcolor import colored
 from inquirer.themes import load_theme_from_dict as loadth
-from concurrent.futures import ProcessPoolExecutor
 
-from data.config import ACCOUNTS, PROXYS, CODES, logger, DB, PRIVATE_KEYS
+from data.config import ACCOUNTS, PROXYS, CODES, logger, DB, PRIVATE_KEYS, ACTUAL_REF
 from utils.policy import set_windows_event_loop_policy
 from utils.validate_token import validate_token
 from utils.db_func import process_tasks, clear_complete
 from utils.create_files import create_files
 from tasks.twitter_client import start_twitter_task
-from data.settings import THREADS, ASYNC_SEMAPHORE
+from data.settings import ASYNC_SEMAPHORE
 
 
-async def start_limited_task(semaphore, token, data, choice):
+async def start_limited_task(semaphore, token, data, choice, spare_ref_codes=None):
     async with semaphore:
-        await start_twitter_task(token, data, choice)
+        await start_twitter_task(token, data, choice, spare_ref_codes)
 
 
 def get_accounts_info(path): 
@@ -68,6 +67,7 @@ async def main():
     proxies_list: list[str] = get_accounts_info(PROXYS)
     ref_codes: list[str] = get_accounts_info(CODES)
     private_keys: list[str] = get_accounts_info(PRIVATE_KEYS)
+    spare_ref_codes: list[str] = get_accounts_info(ACTUAL_REF)
 
     cycled_proxies_list = itertools.cycle(proxies_list) if proxies_list else None
     
@@ -104,7 +104,7 @@ async def main():
         semaphore = asyncio.Semaphore(ASYNC_SEMAPHORE)
         tasks = []
         for token, data in actual_to_work.items():
-            task = asyncio.create_task(start_limited_task(semaphore, token, data, 1))
+            task = asyncio.create_task(start_limited_task(semaphore, token, data, 1, spare_ref_codes=spare_ref_codes))
             tasks.append(task)
 
         await asyncio.wait(tasks)

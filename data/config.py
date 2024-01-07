@@ -27,6 +27,7 @@ ACTUAL_REF = os.path.join(ACCOUNTS_DIR, 'actual_ref.txt')
 PRIVATE_KEYS = os.path.join(ACCOUNTS_DIR, 'private_keys.txt')
 WELL_ABI = os.path.join(ABIS_DIR, 'well3.json')
 
+
 METAMASK = os.path.join(EXTENSION_DIR, 'metamask')
 BANNER_IMAGE = os.path.join(ACCOUNTS_DIR, 'banner.jpg')
 
