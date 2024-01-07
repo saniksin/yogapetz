@@ -13,7 +13,12 @@ from utils.validate_token import validate_token
 from utils.db_func import process_tasks, clear_complete
 from utils.create_files import create_files
 from tasks.twitter_client import start_twitter_task
-from data.settings import THREADS
+from data.settings import THREADS, ASYNC_SEMAPHORE
+
+
+async def start_limited_task(semaphore, token, data, choice):
+    async with semaphore:
+        await start_twitter_task(token, data, choice)
 
 
 def get_accounts_info(path): 
@@ -96,29 +101,38 @@ async def main():
 
         logger.info(f'{len(actual_to_work)} аккаунтов еще не выполнили начальные задачи.. Начинаем')
         
-        tasks: list = []
+        semaphore = asyncio.Semaphore(ASYNC_SEMAPHORE)
+        tasks = []
         for token, data in actual_to_work.items():
-            tasks.append(asyncio.create_task(start_twitter_task(token=token, data=data, сhoise=1)))
+            task = asyncio.create_task(start_limited_task(semaphore, token, data, 1))
+            tasks.append(task)
 
         await asyncio.wait(tasks)
 
     elif user_choice == '   2) Ежедевные задачи':
-        tasks: list = []
+        semaphore = asyncio.Semaphore(ASYNC_SEMAPHORE)
+        tasks = []
         for token, data in db.items():
-            tasks.append(asyncio.create_task(start_twitter_task(token=token, data=data, сhoise=1)))
+            task = asyncio.create_task(start_limited_task(semaphore, token, data, 1))
+            tasks.append(task)
 
         await asyncio.wait(tasks)
 
     elif user_choice == '   3) Минт книг у мастера квестов':
-         with ProcessPoolExecutor(THREADS) as executor:
-            tasks = [executor.submit(run_async_task, token, data, 3) for token, data in db.items()]
-            for task in tasks:
-                await asyncio.wrap_future(task)
+        semaphore = asyncio.Semaphore(ASYNC_SEMAPHORE)
+        tasks = []
+        for token, data in db.items():
+            task = asyncio.create_task(start_limited_task(semaphore, token, data, 3))
+            tasks.append(task)
+
+        await asyncio.wait(tasks)
 
     elif user_choice == '   4) Собрать реф коды':
-        tasks: list = []
+        semaphore = asyncio.Semaphore(ASYNC_SEMAPHORE)
+        tasks = []
         for token, data in db.items():
-            tasks.append(asyncio.create_task(start_twitter_task(token=token, data=data, сhoise=4)))
+            task = asyncio.create_task(start_limited_task(semaphore, token, data, 4))
+            tasks.append(task)
 
         await asyncio.wait(tasks)
     

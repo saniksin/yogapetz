@@ -43,6 +43,8 @@ async def process_tasks(file_path, source_data):
 
                 "private_key": account['private_key'],
 
+                "twitter_account_status": None,
+
                 # Задачи твиттер
                 "tasks": [
                     {"type": "follow", "target": "GMioETH", "status": "pending"},
@@ -78,6 +80,8 @@ async def process_tasks(file_path, source_data):
         if tasks[account[token]]['private_key'] != account['private_key']:
             tasks[account[token]]['private_key'] = account['private_key']
 
+        
+
     # Добавляем обновления в базу данных
     for token, data in tasks.items():
 
@@ -102,6 +106,11 @@ async def process_tasks(file_path, source_data):
                     {"task": "follow-keung", "status": "pending"},
                     {"task": "follow-gmio", "status": "pending"}, 
                 ]
+        try:
+            _ = data["twitter_account_status"]
+        except KeyError:
+            data["twitter_account_status"] = None
+
 
     await async_write_json(tasks, file_path)
 

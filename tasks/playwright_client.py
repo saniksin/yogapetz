@@ -38,17 +38,14 @@ class PlaywrightClient:
         await page.fill(xpath, text)
 
     async def start_metamask_login(self, browser):
-        print('я тут')
         await asyncio.sleep(2)
         page = browser.pages[-1]
         xpath_selector = "xpath=/html/body/div[1]/div/div[2]/div/div/div/ul/li[1]/div/input"
         await asyncio.sleep(1)
         await self.click(page, xpath_selector)
         xpath_selector = "xpath=/html/body/div[1]/div/div[2]/div/div/div/ul/li[2]/button"
-        print('я тут')
         await self.click(page, xpath_selector)
         xpath_selector = "xpath=/html/body/div[1]/div/div[2]/div/div/div/div/button[1]"
-        print('я тут 4')
         await self.click(page, xpath_selector)
         xpath_selector = "xpath=/html/body/div[1]/div/div[2]/div/div/div/div[2]/form/div[1]/label/input"
         await self.fill(page, xpath_selector, '@1DAD324392139110213dsf2e!')
@@ -90,7 +87,7 @@ class PlaywrightClient:
                 try:
                     browser = await p.chromium.launch_persistent_context(
                         user_data_dir='',
-                        headless=True, # отвечает за фоновый режим True - фон, False - нет
+                        headless=False, # отвечает за фоновый режим True - фон, False - нет
                         args=[
                             f"--disable-extensions-except={METAMASK}",
                             f"--load-extension={METAMASK}"

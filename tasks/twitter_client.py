@@ -1,4 +1,5 @@
 import sys
+import time
 import base64
 import traceback
 import random
@@ -16,12 +17,16 @@ from better_automation.twitter.errors import Forbidden, HTTPException, Unauthori
 from bs4 import BeautifulSoup
 from fake_useragent import UserAgent
 from curl_cffi.requests.errors import RequestsError
+from eth_account.messages import encode_defunct
+from web3.exceptions import ContractLogicError, TransactionNotFound, Web3ValidationError
 
-from data.settings import SLEEP_FROM, SLEEP_TO, NUMBER_OF_ATTEMPTS, API_KEY
-from data.config import logger, PROBLEMS, BANNER_IMAGE, DB, ACTUAL_REF
+from data.settings import SLEEP_FROM, SLEEP_TO, NUMBER_OF_ATTEMPTS, API_KEY, MIN_BALANCE
+from data.config import logger, PROBLEMS, BANNER_IMAGE, DB, ACTUAL_REF, WELL_ABI
 from exeptions.exeptions import WrongCaptcha
 from utils.db_func import async_write_json, async_read_json
 from tasks.playwright_client import PlaywrightClient
+from data.models import Networks, CONTRACT_ADDRESS
+from tasks.eth_client import EthClient
 
 
 class TwitterTasksCompleter:
@@ -37,6 +42,7 @@ class TwitterTasksCompleter:
         self.id_token = data['id_token']
         self.platform = data['platform']
         self.private_key = data['private_key']
+        self.twitter_account_status = data['twitter_account_status']
         
         # Рандомизируем список задач
         random.shuffle(self.account_tasks)
@@ -59,6 +65,7 @@ class TwitterTasksCompleter:
             'ref_code': self.ref_code,
             'proxy': self.account_proxy,
             'private_key': self.private_key,
+            'twitter_account_status': self.twitter_account_status,
             'tasks': self.account_tasks,
             'platform': self.platform
         }
@@ -67,6 +74,9 @@ class TwitterTasksCompleter:
 
     async def start_tasks(self, option: int):
         """ Стартуем задачи """
+
+        if self.twitter_account_status == "SUSPENDED":
+            return
 
         # Количество попыток в случае неудачи
         for num, _ in enumerate(range(NUMBER_OF_ATTEMPTS), start=1):
@@ -172,11 +182,13 @@ class TwitterTasksCompleter:
 
                                 if value['nextAvailableFrom']:
                                     current_time = int(str(datetime.datetime.now().timestamp()).replace(".","")[:-3])
+                                    human_readable_time = datetime.datetime.fromtimestamp(current_time / 1000)
+                                    formatted_time = human_readable_time.strftime('%Y-%m-%d %H:%M:%S')
                                     if value['nextAvailableFrom'] < current_time:
                                         status = await self.complete_breath_session()
                                     else:
-                                        logger.info(f"{self.account_token} | ближайшая breath session через { \
-                                            str(value['nextAvailableFrom'] - current_time)[:-3]} cекунд")
+                                        logger.info(f"{self.account_token} | ближайшая breath session { \
+                                            formatted_time}.")
                                         break
                                 else:
                                     status = await self.complete_breath_session()
@@ -212,9 +224,37 @@ class TwitterTasksCompleter:
 
                         break
                     elif option == 3:
-                        pass
-                        # регистрация с помощью playwright (неактульна пока что)
-                        # self.start_master_quests_tx = await self.playwright_client.claim()
+                        await self.login()
+                        account_data = await self.get_account_data()
+                        if not account_data['contractInfo']:
+                            signature = ('Welcome to Yogapetz\n' 
+                                        'Click "Sign" to continue.\n\n'
+                                        'Timestamp:\n'
+                                       f'{str(datetime.datetime.now().timestamp()).replace(".","")[:-3]}')
+                            
+                            await self.start_welcome_sign_msg(signature)
+
+                            account_data = await self.get_account_data()
+                            if account_data.get('contractInfo', False):
+                                logger.success(f'{self.twitter_account} | успешно подписал сообщение и прикрепил кошелек')
+                            else:
+                                logger.error(f'{self.twitter_account} | не удалось подписать сообщение и прикрепить кошелек')
+                        
+                        if account_data['contractInfo']['rankupQuest'].get('currentRank', False):
+                            current_rank = account_data['contractInfo']['rankupQuest']['currentRank']
+                            signature = account_data['contractInfo']['rankupQuest']['signature']
+                                
+                            await self.start_rankup_quest(current_rank, signature)
+
+                        if account_data['contractInfo']['dailyQuest'].get('nonce', False):
+                            nonce = account_data['contractInfo']['dailyQuest']['nonce']
+                            signature = account_data['contractInfo']['dailyQuest']['signature']
+
+                            await self.start_daily_quest(nonce, signature)
+                            
+                        # регистрация с помощью playwright (неактульна)
+                        #self.start_master_quests_tx = await self.playwright_client.claim()
+                            
                     elif option == 4:
                         await self.login()
                         account_data = await self.get_account_data()
@@ -233,6 +273,8 @@ class TwitterTasksCompleter:
                     elif self.twitter_account.status == 'SUSPENDED':
                         logger.warning(f'Действие учетной записи приостановлено (бан)! Токен - {self.twitter_account}')
                         await self.write_status(status='SUSPENDED')
+                        self.twitter_account_status = "SUSPENDED"
+                        await self.write_to_db()
                         break
                     elif self.twitter_account.status == "LOCKED":
                         logger.warning(f'Учетная запись заморожена (лок)! Требуется прохождение капчи. Токен - {self.twitter_account}')
@@ -730,6 +772,193 @@ class TwitterTasksCompleter:
         if res.status_code == 401 or res.status_code == 400:
             return False
         return True
+    
+
+    async def start_welcome_sign_msg(self, signature):
+
+        eth_client = EthClient(private_key=self.private_key, proxy=self.account_proxy)
+        
+        # Кодируем сообщение
+        message_encoded = encode_defunct(text=signature)
+        
+        # Подписываем сообщение
+        signed_message = eth_client.account.sign_message(message_encoded)
+
+        user_agent = UserAgent().chrome
+        version = user_agent.split('Chrome/')[1].split('.')[0]
+        platform = ['macOS', 'Windows', 'Linux']
+
+        url = 'https://api.gm.io/ygpz/link-wallet'
+        headers = {
+            'authority': 'api.gm.io',
+            'accept': 'application/json',
+            'accept-language': 'pl-PL,pl;q=0.9',
+            'authorization': self.id_token,
+            'content-type': 'application/json',
+            'origin': 'https://well3.com',
+            'referer': 'https://well3.com/',
+            'sec-ch-ua': f'"Not_A Brand";v="8", "Chromium";v="{version}", "Google Chrome";v="{version}"',
+            'sec-ch-ua-mobile': '?0',
+            'sec-ch-ua-platform': f'"{platform}"',
+            'sec-fetch-dest': 'empty',
+            'sec-fetch-mode': 'cors',
+            'sec-fetch-site': 'cross-site',
+            'user-agent': user_agent,
+        }
+        json = {
+            'address': eth_client.account.address,
+            'signature': signed_message.signature.hex(),
+            'msg': signature,
+        }
+
+        res = await self.async_session.post(
+            url=url,
+            headers=headers,
+            json=json
+        )
+        
+        retry = 0
+        while retry < 10:
+            if res.status_code == 400 or res.status_code == 401:
+                result = await self.registration()
+                self.refresh_token = result['refreshToken']
+                self.id_token = result['idToken']
+                await self.write_to_db()
+                res = await self.async_session.post(
+                    url=url,
+                    headers=headers,
+                    json=json
+                )
+                answer = res.json
+                retry += 1
+            else:
+                break
+
+        if res.status_code == 401 or res.status_code == 400:
+            return False
+        return True
+
+    async def get_abi(self):
+        return await async_read_json(WELL_ABI)
+    
+
+    async def wait_tx_status(self, client, tx_hash: str, max_wait_time=100) -> None:
+        start_time = time.time()
+        while True:
+            try:
+                receipts = await client.w3.eth.get_transaction_receipt(tx_hash)
+                status = receipts.get("status")
+                if status == 1:
+                    return (f"{self.twitter_account} | успешно сминтили книгу | tx hash: "
+                            f"https://opbnb.bscscan.com/tx/{tx_hash}!")
+                elif status is None:
+                    await asyncio.sleep(0.3)
+                else:
+                    return (f"{self.twitter_account} | не удалось сминтить книгу | tx hash: "
+                            f"https://opbnb.bscscan.com/tx/{tx_hash}!")
+            except TransactionNotFound:
+                if time.time() - start_time > max_wait_time:
+                    return (f"Failed deploy | {self.eth_client.account.address} | "
+                            f"status: successfully | https://scrollscan.com/tx/{tx_hash}!")
+                await asyncio.sleep(3)
+
+
+    async def start_rankup_quest(self, rank, signature):
+        
+        bnb_client = EthClient(network=Networks.opBNB, private_key=self.private_key, proxy=self.account_proxy)
+
+        balance = await bnb_client.w3.eth.get_balance(bnb_client.account.address)
+        if balance <= MIN_BALANCE:
+            logger.error(f'{self.twitter_account} | нету достаточного кол-ва bnb в сети opBNB')
+            return
+
+        abi = await self.get_abi()
+        contract = bnb_client.w3.eth.contract(address=CONTRACT_ADDRESS, abi=abi)
+
+        rank = int(rank)
+        quest_amount = await contract.functions.getQuests(
+            int(rank), 
+            bnb_client.w3.to_checksum_address(bnb_client.account.address)
+        ).call()
+
+        chain_id = await bnb_client.w3.eth.chain_id
+        gas_price = await bnb_client.w3.eth.gas_price
+        nonce = await bnb_client.w3.eth.get_transaction_count(bnb_client.account.address)
+        try:
+            gas_limit = await  contract.functions.rankupQuestAmount(
+                rank,
+                signature=signature,
+                questAmount=quest_amount
+            ).estimate_gas({'from': bnb_client.account.address})
+        except Web3ValidationError:
+            logger.error(f'{self.twitter_account} | ошибка в логике контракта')
+        except ContractLogicError:
+            logger.warning(f'{self.twitter_account} | минт пока недоступен')
+            return
+
+        transaction = await contract.functions.rankupQuestAmount(
+            rank,
+            signature=signature,
+            questAmount=quest_amount
+        ).build_transaction({
+            'chainId': chain_id,
+            'gas': int(gas_limit * 1.2),
+            'gasPrice': gas_price,
+            'nonce': nonce
+        })
+
+        signed_txn = bnb_client.account.sign_transaction(transaction)
+        txn_hash = await bnb_client.w3.eth.send_raw_transaction(signed_txn.rawTransaction)
+        msg = await self.wait_tx_status(client=bnb_client, tx_hash=txn_hash.hex())
+        if 'успешно' in msg:
+            logger.success(msg)
+        else:
+            logger.error(msg)
+
+    async def start_daily_quest(self, request_nonce, signature):
+        
+        bnb_client = EthClient(network=Networks.opBNB, private_key=self.private_key, proxy=self.account_proxy)
+
+        balance = await bnb_client.w3.eth.get_balance(bnb_client.account.address)
+        if balance <= MIN_BALANCE:
+            logger.error(f'{self.twitter_account} | нету достаточного кол-ва bnb в сети opBNB')
+            return
+
+        abi = await self.get_abi()
+        contract = bnb_client.w3.eth.contract(address=CONTRACT_ADDRESS, abi=abi)
+
+        chain_id = await bnb_client.w3.eth.chain_id
+        gas_price = await bnb_client.w3.eth.gas_price
+        nonce = await bnb_client.w3.eth.get_transaction_count(bnb_client.account.address)
+        try:
+            gas_limit = await  contract.functions.nonceQuest(
+                request_nonce,
+                signature=signature
+            ).estimate_gas({'from': bnb_client.account.address})
+        except Web3ValidationError:
+            logger.error(f'{self.twitter_account} | ошибка в логике контракта')
+        except ContractLogicError:
+            logger.warning(f'{self.twitter_account} | минт пока недоступен')
+            return
+
+        transaction = await contract.functions.nonceQuest(
+            request_nonce,
+            signature=signature
+        ).build_transaction({
+            'chainId': chain_id,
+            'gas': int(gas_limit * 1.2),
+            'gasPrice': gas_price,
+            'nonce': nonce
+        })
+
+        signed_txn = bnb_client.account.sign_transaction(transaction)
+        txn_hash = await bnb_client.w3.eth.send_raw_transaction(signed_txn.rawTransaction)
+        msg = await self.wait_tx_status(client=bnb_client, tx_hash=txn_hash.hex())
+        if 'успешно' in msg:
+            logger.success(msg)
+        else:
+            logger.error(msg)
+
 
 async def start_twitter_task(token: str, data: dict, сhoise: int) -> bool:
     try:
