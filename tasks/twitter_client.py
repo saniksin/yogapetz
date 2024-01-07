@@ -1,3 +1,5 @@
+import os
+import csv
 import sys
 import time
 import base64
@@ -21,11 +23,12 @@ from eth_account.messages import encode_defunct
 from web3.exceptions import ContractLogicError, TransactionNotFound, Web3ValidationError
 
 from data.settings import SLEEP_FROM, SLEEP_TO, NUMBER_OF_ATTEMPTS, API_KEY, MIN_BALANCE, API_KEY
-from data.config import logger, PROBLEMS, BANNER_IMAGE, DB, ACTUAL_REF, WELL_ABI
+from data.config import logger, PROBLEMS, BANNER_IMAGE, DB, ACTUAL_REF, WELL_ABI, NST_STATS
 from exeptions.exeptions import WrongCaptcha
 from utils.db_func import async_write_json, async_read_json
 from data.models import Networks, CONTRACT_ADDRESS
 from tasks.eth_client import EthClient
+from utils.show_stats import read_and_summarize_nft_stats
 
 
 class TwitterTasksCompleter:
@@ -282,6 +285,12 @@ class TwitterTasksCompleter:
                         ref_codes = [code_data['code'] for code_data in account_data['referralInfo']['myReferralCodes'] \
                                     if 'usedAt' not in code_data]
                         await self.write_status(ref_codes, ACTUAL_REF)
+                        break
+
+                    elif option == 5:
+                        await self.nft_stats_prepere()
+                        logger.success(f'{self.twitter_account} | успешно собрал статистику')
+                        break
                     break
 
             except Forbidden as err:
@@ -1016,21 +1025,42 @@ class TwitterTasksCompleter:
                     json={},
                     headers=headers
                 )
-                answer = other_response.json()
+                if other_response.status_code == 200:
+                    return True
                 retry += 1
             else:
                 break
         if other_response.status_code == 401 or other_response.status_code == 400:
             return False
         return True
+    
+    async def write_nft_stats(self, address, nft_stats, file_path=NST_STATS):
+        headers = ["address", "uncommon", "rare", "legendary", "mythical"]
 
+        file_exists = os.path.exists(file_path)
+        async with aiofiles.open(file_path, mode='a', newline='') as file:
+            if not file_exists:
+                await file.write(','.join(headers) + '\n')
+
+            info = [address] + nft_stats
+            info_line = ','.join(map(str, info)) + '\n'
+
+            await file.write(info_line)
+
+    async def nft_stats_prepere(self):
+        bnb_client = EthClient(network=Networks.opBNB, private_key=self.private_key, proxy=self.account_proxy)
+        abi = await self.get_abi()
+        contract = bnb_client.w3.eth.contract(address=CONTRACT_ADDRESS, abi=abi)
+        nft_stats = await contract.functions.questResults(bnb_client.w3.to_checksum_address(bnb_client.account.address)).call()
+        if nft_stats:
+            await self.write_nft_stats(bnb_client.account.address, nft_stats)
 
 async def start_twitter_task(token: str, data: dict, сhoise: int, spare_ref_codes: list | None) -> bool:
     try:
         await TwitterTasksCompleter(token=token, data=data, spare_ref_codes=spare_ref_codes).start_tasks(сhoise)
     except KeyboardInterrupt:
         sys.exit(1)
-
+        
     except WrongCaptcha:
         pass
 

@@ -7,3 +7,4 @@ fake-useragent==1.4.0
 inquirer==3.2.0
 termcolor==2.4.0
 web3==6.13.0
+prettytable==3.9.0

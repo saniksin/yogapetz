@@ -1,3 +1,4 @@
+import os
 import sys
 import itertools
 
@@ -6,13 +7,14 @@ import inquirer
 from termcolor import colored
 from inquirer.themes import load_theme_from_dict as loadth
 
-from data.config import ACCOUNTS, PROXYS, CODES, logger, DB, PRIVATE_KEYS
+from data.config import ACCOUNTS, PROXYS, CODES, logger, DB, PRIVATE_KEYS, NST_STATS
 from utils.policy import set_windows_event_loop_policy
 from utils.validate_token import validate_token
 from utils.db_func import process_tasks, clear_complete
 from utils.create_files import create_files
 from tasks.twitter_client import start_twitter_task
 from data.settings import ASYNC_SEMAPHORE
+from utils.show_stats import read_and_summarize_nft_stats
 
 
 async def start_limited_task(semaphore, token, data, choice, spare_ref_codes=None):
@@ -52,6 +54,8 @@ def get_action() -> str:
                 '   2) Ежедевные задачи',
                 '   3) Минт книг у мастера квестов',
                 '   4) Собрать реф коды',
+                '   5) Собрать статистику (сминченные книги) и записать в csv file',
+                '   6) Вывести статистику',
             ]
         )
     ]
@@ -134,6 +138,20 @@ async def main():
             tasks.append(task)
 
         await asyncio.wait(tasks)
+
+    elif user_choice == '   5) Собрать статистику (сминченные книги) и записать в csv file':
+        os.remove(NST_STATS)
+        semaphore = asyncio.Semaphore(ASYNC_SEMAPHORE)
+        tasks = []
+        for token, data in db.items():
+            task = asyncio.create_task(start_limited_task(semaphore, token, data, 5))
+            tasks.append(task)
+
+        await asyncio.wait(tasks)
+        read_and_summarize_nft_stats(NST_STATS)
+
+    elif user_choice == '   6) Вывести статистику':
+        read_and_summarize_nft_stats(NST_STATS)
     
 if __name__ == '__main__':
     create_files()

@@ -16,6 +16,7 @@ actual_ref.txt
 private_keys.txt
 format.txt
 tasks.back
+nft_stats.csv
 
 # Исключение JSON-файлов с задачами
 status/token_db/tasks.json
