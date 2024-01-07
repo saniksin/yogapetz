@@ -100,7 +100,7 @@ class TwitterTasksCompleter:
                         self.twitter_account_status = "BAD_TOKEN"
                         await self.write_to_db()
                         await self.write_status(status="Unauthorized")
-                        brea
+                        break
 
                     if option == 1:
                         # Регистрация
