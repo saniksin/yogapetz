@@ -260,20 +260,26 @@ class TwitterTasksCompleter:
                             account_data = await self.get_account_data()
                             if account_data.get('contractInfo', False):
                                 logger.success(f'{self.twitter_account} | успешно подписал сообщение и прикрепил кошелек')
+                                await self.sleep_after_action()
                             else:
                                 logger.error(f'{self.twitter_account} | не удалось подписать сообщение и прикрепить кошелек')
-                        
+                                continue
+                            
                         if account_data['contractInfo']['rankupQuest'].get('currentRank', False):
                             current_rank = account_data['contractInfo']['rankupQuest']['currentRank']
                             signature = account_data['contractInfo']['rankupQuest']['signature']
                                 
-                            await self.start_rankup_quest(current_rank, signature)
+                            status = await self.start_rankup_quest(current_rank, signature)
+                            if status:
+                                await self.sleep_after_action()
 
                         if account_data['contractInfo']['dailyQuest'].get('nonce', False):
                             nonce = account_data['contractInfo']['dailyQuest']['nonce']
                             signature = account_data['contractInfo']['dailyQuest']['signature']
 
-                            await self.start_daily_quest(nonce, signature)
+                            status =await self.start_daily_quest(nonce, signature)
+                            if status:
+                                await self.sleep_after_action()
                             
                     elif option == 4:
                         await self.login()
@@ -926,7 +932,6 @@ class TwitterTasksCompleter:
         ).call()
 
         chain_id = await bnb_client.w3.eth.chain_id
-        gas_price = await bnb_client.w3.eth.gas_price
         nonce = await bnb_client.w3.eth.get_transaction_count(bnb_client.account.address)
         try:
             gas_limit = await  contract.functions.rankupQuestAmount(
@@ -946,8 +951,8 @@ class TwitterTasksCompleter:
             questAmount=quest_amount
         ).build_transaction({
             'chainId': chain_id,
-            'gas': int(gas_limit * 1.2),
-            'gasPrice': gas_price,
+            'gas': 300000,
+            'gasPrice': 10008,
             'nonce': nonce
         })
 
@@ -972,7 +977,6 @@ class TwitterTasksCompleter:
         contract = bnb_client.w3.eth.contract(address=CONTRACT_ADDRESS, abi=abi)
 
         chain_id = await bnb_client.w3.eth.chain_id
-        gas_price = await bnb_client.w3.eth.gas_price
         nonce = await bnb_client.w3.eth.get_transaction_count(bnb_client.account.address)
         try:
             gas_limit = await  contract.functions.nonceQuest(
@@ -990,8 +994,8 @@ class TwitterTasksCompleter:
             signature=signature
         ).build_transaction({
             'chainId': chain_id,
-            'gas': int(gas_limit * 1.2),
-            'gasPrice': gas_price,
+            'gas': 300000,
+            'gasPrice': 10008,
             'nonce': nonce
         })
 
