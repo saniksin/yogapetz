@@ -20,7 +20,7 @@ from curl_cffi.requests.errors import RequestsError
 from eth_account.messages import encode_defunct
 from web3.exceptions import ContractLogicError, TransactionNotFound, Web3ValidationError
 
-from data.settings import SLEEP_FROM, SLEEP_TO, NUMBER_OF_ATTEMPTS, API_KEY, MIN_BALANCE
+from data.settings import SLEEP_FROM, SLEEP_TO, NUMBER_OF_ATTEMPTS, API_KEY, MIN_BALANCE, API_KEY
 from data.config import logger, PROBLEMS, BANNER_IMAGE, DB, ACTUAL_REF, WELL_ABI
 from exeptions.exeptions import WrongCaptcha
 from utils.db_func import async_write_json, async_read_json
@@ -109,10 +109,7 @@ class TwitterTasksCompleter:
                             self.id_token = result['idToken']
                             result = await self.send_invite_code()
                             if 'не актульный' in str(result):
-                                print('я тут')
-                                print(len(self.spare_ref_codes))
                                 self.ref_code = self.spare_ref_codes.pop(0) if self.spare_ref_codes else None
-                                print(not self.ref_code)
                                 if not self.ref_code:
                                     await self.write_status('REF_CODE_PROBLEM')
                                     break
@@ -623,7 +620,7 @@ class TwitterTasksCompleter:
         proxy_log, proxy_pass = parsed.username, parsed.password
 
         json = {
-            "clientKey": self.cap_key,
+            "clientKey": API_KEY,
             "task": {
                 "type": "TurnstileTask",
                 "websiteURL": url,
@@ -635,7 +632,7 @@ class TwitterTasksCompleter:
                 "proxyPassword": proxy_pass,
                 "cloudflareTaskType": "cf_clearance",
                 "htmlPageBase64": html_base64_encoded,
-                "userAgent": self.ua,
+                "userAgent": self.user_agent,
                 "pageAction": action,
                 "data": c_data,
                 "pageData": chl_page_data

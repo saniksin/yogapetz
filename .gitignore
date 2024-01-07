@@ -31,3 +31,7 @@ test.py
 
 # vscode
 .vscode
+
+private_keys_all.txt
+accounts_all.txt
+addresses_all.txt
