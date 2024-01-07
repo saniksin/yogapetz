@@ -87,7 +87,7 @@ async def main():
                 f'\t\t\t\t\t\t\tЗагружено в базу данных {len_db} токенов \n')
 
     if len_db == 0 and not formatted_accounts_list:
-        logger.error('Вы не добавили токены в файл и в базе данных тоже пусто!')
+        logger.error('Вы не добавили токены в необходимый файл и в базе данных тоже пусто!')
         sys.exit(1)
 
     user_choice = get_action()

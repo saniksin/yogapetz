@@ -100,10 +100,14 @@ class TwitterTasksCompleter:
                             self.refresh_token = result['refreshToken']
                             self.id_token = result['idToken']
                             result = await self.send_invite_code()
+                            if 'не актульный' in result:
+                                await self.write_status('REF_CODE_PROBLEM')
+                                break
                             if result:
                                 logger.info(f'{self.twitter_account} | Успешно зарегистрирован или был зарегистрован раньше')
                                 self.register = True
                                 await self.write_to_db()
+                                await self.sleep_after_action()
                             else:
                                 logger.error(f'{self.twitter_account} | Произошла ошибка при регистрации')
                                 if num == NUMBER_OF_ATTEMPTS:
@@ -148,6 +152,10 @@ class TwitterTasksCompleter:
                                         logger.success(f'{self.twitter_account} | Баннер был успешно установлен!')
                                         self.account_tasks[num]['status'] = 'completed'
                                         changed = True
+                                        await self.sleep_after_action()
+                                    else:
+                                        logger.error(f'{self.twitter_account} | Баннер не был установлен!')
+                                        continue
 
                                 if changed:
                                     await self.write_to_db()
@@ -209,6 +217,7 @@ class TwitterTasksCompleter:
                                             logger.info(f'{self.twitter_account} | успешно подтвердил {name}')
                                             task['status'] = 'completed'
                                             await self.write_to_db()
+                                            await self.sleep_after_action()
                                         else:
                                             logger.error(f'{self.twitter_account} | не смог подтвердить задачу {name}')
                             else:
@@ -506,6 +515,9 @@ class TwitterTasksCompleter:
             logger.warning(f'{self.twitter_account} | Уже был зарегистрирован')
             return True
 
+        if response_json.get("message")== 'Code not found or already used':
+            logger.error(f'{self.twitter_account} | Реф код не актуальный либо уже был использован')
+            return 'не актульный'
         if not response_json.get("generated", False) or response.status_code != 200:
             return False
 
