@@ -7,3 +7,6 @@ NUMBER_OF_ATTEMPTS = 5
 
 # API Capmonster
 API_KEY = 'xxxxxx'
+
+# Количество потов для минта нфт
+THREADS = 5

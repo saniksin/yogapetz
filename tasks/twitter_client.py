@@ -15,6 +15,7 @@ from better_automation.base import BaseAsyncSession
 from better_automation.twitter.errors import Forbidden, HTTPException, Unauthorized
 from bs4 import BeautifulSoup
 from fake_useragent import UserAgent
+from curl_cffi.requests.errors import RequestsError
 
 from data.settings import SLEEP_FROM, SLEEP_TO, NUMBER_OF_ATTEMPTS, API_KEY
 from data.config import logger, PROBLEMS, BANNER_IMAGE, DB, ACTUAL_REF
@@ -35,6 +36,7 @@ class TwitterTasksCompleter:
         self.refresh_token = data['refresh_token']
         self.id_token = data['id_token']
         self.platform = data['platform']
+        self.private_key = data['private_key']
         
         # Рандомизируем список задач
         random.shuffle(self.account_tasks)
@@ -44,7 +46,8 @@ class TwitterTasksCompleter:
         self.playwright_client: PlaywrightClient = PlaywrightClient(
             twitter_account=self.twitter_account,
             proxy=data['proxy'],
-            ref_code=data['ref_code']
+            ref_code=data['ref_code'],
+            private_key=data['private_key']
         )
     
     async def write_to_db(self):
@@ -55,14 +58,14 @@ class TwitterTasksCompleter:
             'refresh_token': self.refresh_token,
             'ref_code': self.ref_code,
             'proxy': self.account_proxy,
+            'private_key': self.private_key,
             'tasks': self.account_tasks,
             'platform': self.platform
         }
         await async_write_json(actual_db, DB)
 
 
-
-    async def start_tasks(self):
+    async def start_tasks(self, option: int):
         """ Стартуем задачи """
 
         # Количество попыток в случае неудачи
@@ -76,7 +79,6 @@ class TwitterTasksCompleter:
                 ) as twitter:
                     
                     self.twitter_client = twitter
-                    
                     # Совершаем любое действие чтобы обновить статус аккаунта
                     try:
                         await self.get_name()
@@ -85,137 +87,140 @@ class TwitterTasksCompleter:
                         await self.write_status(status="Unauthorized")
                         break
 
-                    # Регистрация
-                    if not self.register:
-                        logger.info(f'{self.account_token} | Начинаю регистрацию')
-                        result = await self.registration()
-                        self.refresh_token = result['refreshToken']
-                        self.id_token = result['idToken']
-                        result = await self.send_invite_code()
-                        if result:
-                            logger.info(f'{self.account_token} | Успешно зарегистрирован или был зарегистрован раньше')
-                            self.register = True
-                            await self.write_to_db()
-                        else:
-                            logger.error(f'{self.account_token} | Произошла ошибка при регистрации')
-                            if num == NUMBER_OF_ATTEMPTS:
-                                await self.write_status(status='REF_CODE_PROBLEM')
-                            continue
-                    
-                    # Выполняем основные твиттер таски (основные)
-                    for num, task in enumerate(self.account_tasks):
-                        if task['status'] == 'pending':
-                            task_type = task['type']
-                            changed = False
-                            
-                            if task_type == 'follow':
-                                status = await self.follow_quest(username=task['target'])
-                                if status:
-                                    self.account_tasks[num]['status'] = 'completed'
-                                    changed = True
-
-                            elif task_type == 'retweet':
-                                try:
-                                    status = await self.like_and_reetweet_quest(tweet_id=task['tweet_id'])
-                                    if status:
-                                        self.account_tasks[num]['status'] = 'completed'
-                                        changed = True
-                                except HTTPException as err:
-                                    if 'already retweeted' in str(err):
-                                        logger.warning(f'{self.account_token} | уже успешно репостнул {task["tweet_id"]}')
-                                        self.account_tasks[num]['status'] = 'completed'
-                                        changed = True
-                                    elif 'already_favorited' in str(err):
-                                        logger.warning(f'{self.account_token} | уже успешно лайкнул {task["tweet_id"]}')
-                                        self.account_tasks[num]['status'] = 'completed'
-                                        changed = True
-                                    else:
-                                        logger.error(f'Неизвестная ошибка: {err}')
-
-                            elif task_type == 'update_banner':
-                                image_bytes = await self.read_image_as_base64_encoded_bytes(BANNER_IMAGE)
-                                media_id = await twitter.upload_image(image=image_bytes)
-                                status = await twitter.update_profile_banner(media_id=media_id)
-                                if status:
-                                    logger.success(f'{self.account_token} | Баннер был успешно установлен!')
-                                    self.account_tasks[num]['status'] = 'completed'
-                                    changed = True
-
-                            if changed:
+                    if option == 1:
+                        # Регистрация
+                        if not self.register:
+                            logger.info(f'{self.account_token} | Начинаю регистрацию')
+                            result = await self.registration()
+                            self.refresh_token = result['refreshToken']
+                            self.id_token = result['idToken']
+                            result = await self.send_invite_code()
+                            if result:
+                                logger.info(f'{self.account_token} | Успешно зарегистрирован или был зарегистрован раньше')
+                                self.register = True
                                 await self.write_to_db()
-                                if num + 1 == len(self.account_tasks):
-                                    break
-                                await self.sleep_after_action()
-
-                    # Меняем имя пользователя (цикл необходим потому что обновляется не с первого запроса)
-                    # !!! ПОСЛЕ ДЕЙСВИЯ АККАУНТ БУДЕТ БРОШЕН В LOCKED!!! НАДО БУДЕТ ПРОХОДИТЬ КАПЧУ !!!
-                    # await self.get_name()
-                    # old_name = self.twitter_account.name
-                    # while True:
-                    #     await self.change_twitter_name()
-                    #     await self.get_name()
-                    #     new_name = self.twitter_account.name
-                    #     print(old_name, new_name)
-                    #     if old_name != new_name:
-                    #         break
-                                
-                    # Подтверждаем основные таски на платформе
-                    await self.login()
-                    account_data = await self.get_account_data()
-
-                    # Ежедневное задание
-                    for name, value in account_data['ygpzQuesting']['info']['dailyProgress'].items():
-                        if "complete-breath-session" in name and value['value'] != 2:
-
-                            if value['nextAvailableFrom']:
-                                current_time = int(str(datetime.datetime.now().timestamp()).replace(".","")[:-3])
-                                if value['nextAvailableFrom'] < current_time:
-                                    status = await self.complete_breath_session()
-                                else:
-                                    logger.info(f"{self.account_token} | ближайшая breath session через { \
-                                        str(value['nextAvailableFrom'] - current_time)[:-3]} cекунд")
-                                    break
                             else:
-                                status = await self.complete_breath_session()
-
-                            if status:
-                                logger.info(f'{self.account_token} | успешно выполнил breath session')
-                                await self.sleep_after_action()
-                            else:
-                                logger.error(f'{self.account_token} | не удалось выполнить breath session')
-
-                    for name, value in account_data['ygpzQuesting']['info']['specialProgress'].items():
-                            
-                        if name == 'add-well-to-twitter-profile':
-                            continue
-
-                        task_exists = any(task['task'] == name for task in self.platform)
+                                logger.error(f'{self.account_token} | Произошла ошибка при регистрации')
+                                if num == NUMBER_OF_ATTEMPTS:
+                                    await self.write_status(status='REF_CODE_PROBLEM')
+                                continue
                         
-                        if task_exists:
-                            for task in self.platform:
-                                if task['task'] == name and task['status'] != "completed":
-                                    logger.info(f'{self.account_token} | подтверждение задачи {name}')
-                                    status = await self.complete_other_tasks(task_name=name)
+                        # Выполняем основные твиттер таски (основные)
+                        for num, task in enumerate(self.account_tasks):
+                            if task['status'] == 'pending':
+                                task_type = task['type']
+                                changed = False
+                                
+                                if task_type == 'follow':
+                                    status = await self.follow_quest(username=task['target'])
                                     if status:
-                                        logger.info(f'{self.account_token} | успешно подтвердил {name}')
-                                        task['status'] = 'completed'
-                                        await self.write_to_db()
+                                        self.account_tasks[num]['status'] = 'completed'
+                                        changed = True
+
+                                elif task_type == 'retweet':
+                                    try:
+                                        status = await self.like_and_reetweet_quest(tweet_id=task['tweet_id'])
+                                        if status:
+                                            self.account_tasks[num]['status'] = 'completed'
+                                            changed = True
+                                    except HTTPException as err:
+                                        if 'already retweeted' in str(err):
+                                            logger.warning(f'{self.account_token} | уже успешно репостнул {task["tweet_id"]}')
+                                            self.account_tasks[num]['status'] = 'completed'
+                                            changed = True
+                                        elif 'already_favorited' in str(err):
+                                            logger.warning(f'{self.account_token} | уже успешно лайкнул {task["tweet_id"]}')
+                                            self.account_tasks[num]['status'] = 'completed'
+                                            changed = True
+                                        else:
+                                            logger.error(f'Неизвестная ошибка: {err}')
+
+                                elif task_type == 'update_banner':
+                                    image_bytes = await self.read_image_as_base64_encoded_bytes(BANNER_IMAGE)
+                                    media_id = await twitter.upload_image(image=image_bytes)
+                                    status = await twitter.update_profile_banner(media_id=media_id)
+                                    if status:
+                                        logger.success(f'{self.account_token} | Баннер был успешно установлен!')
+                                        self.account_tasks[num]['status'] = 'completed'
+                                        changed = True
+
+                                if changed:
+                                    await self.write_to_db()
+                                    if num + 1 == len(self.account_tasks):
+                                        break
+                                    await self.sleep_after_action()
+
+                        # Меняем имя пользователя (цикл необходим потому что обновляется не с первого запроса)
+                        # !!! ПОСЛЕ ДЕЙСВИЯ АККАУНТ БУДЕТ БРОШЕН В LOCKED!!! НАДО БУДЕТ ПРОХОДИТЬ КАПЧУ !!!
+                        # await self.get_name()
+                        # old_name = self.twitter_account.name
+                        # while True:
+                        #     await self.change_twitter_name()
+                        #     await self.get_name()
+                        #     new_name = self.twitter_account.name
+                        #     print(old_name, new_name)
+                        #     if old_name != new_name:
+                        #         break
+                                    
+                        # Подтверждаем основные таски на платформе
+                        await self.login()
+                        account_data = await self.get_account_data()
+
+                        # Ежедневное задание
+                        for name, value in account_data['ygpzQuesting']['info']['dailyProgress'].items():
+                            if "complete-breath-session" in name and value['value'] != 2:
+
+                                if value['nextAvailableFrom']:
+                                    current_time = int(str(datetime.datetime.now().timestamp()).replace(".","")[:-3])
+                                    if value['nextAvailableFrom'] < current_time:
+                                        status = await self.complete_breath_session()
                                     else:
-                                        logger.error(f'{self.account_token} | не смог подтвердить задачу {name}')
-                        else:
-                            logger.error(f'Задача {name} не найдена в текущем списке задач!')
-        
+                                        logger.info(f"{self.account_token} | ближайшая breath session через { \
+                                            str(value['nextAvailableFrom'] - current_time)[:-3]} cекунд")
+                                        break
+                                else:
+                                    status = await self.complete_breath_session()
 
-                    ref_codes = [code_data['code'] for code_data in account_data['referralInfo']['myReferralCodes']]
-                    await self.write_status(ref_codes, ACTUAL_REF)
-    
+                                if status:
+                                    logger.info(f'{self.account_token} | успешно выполнил breath session')
+                                    await self.sleep_after_action()
+                                else:
+                                    logger.error(f'{self.account_token} | не удалось выполнить breath session')
 
-                    logger.success(f'{self.account_token} | закончил все задания задания с твиттером')
+                        for name, value in account_data['ygpzQuesting']['info']['specialProgress'].items():
+                                
+                            if name == 'add-well-to-twitter-profile':
+                                continue
+
+                            task_exists = any(task['task'] == name for task in self.platform)
+                            
+                            if task_exists:
+                                for task in self.platform:
+                                    if task['task'] == name and task['status'] != "completed":
+                                        logger.info(f'{self.account_token} | подтверждение задачи {name}')
+                                        status = await self.complete_other_tasks(task_name=name)
+                                        if status:
+                                            logger.info(f'{self.account_token} | успешно подтвердил {name}')
+                                            task['status'] = 'completed'
+                                            await self.write_to_db()
+                                        else:
+                                            logger.error(f'{self.account_token} | не смог подтвердить задачу {name}')
+                            else:
+                                logger.error(f'Задача {name} не найдена в текущем списке задач!')
                     
-                    # регистрация с помощью playwright (неактульна пока что)
-                    # self.register = await self.playwright_client.register()
-                    # if not self.register:
-                    #     await self.write_status(status='REF_CODE_PROBLEM')
+                        logger.success(f'{self.account_token} | закончил все задания задания с твиттером')
+
+                        break
+                    elif option == 3:
+                        pass
+                        # регистрация с помощью playwright (неактульна пока что)
+                        # self.start_master_quests_tx = await self.playwright_client.claim()
+                    elif option == 4:
+                        await self.login()
+                        account_data = await self.get_account_data()
+                        ref_codes = [code_data['code'] for code_data in account_data['referralInfo']['myReferralCodes']]
+                        await self.write_status(ref_codes, ACTUAL_REF)
+                    
                     break
 
             except Forbidden as err:
@@ -236,9 +241,18 @@ class TwitterTasksCompleter:
                     continue
                 
                 logger.error(f'Неизвестная ошибка: {err}')
+                continue
 
             except JSONDecodeError:
                 logger.error(f'{self.account_token} | Ошибка с получением ответа от API')
+                continue
+
+            except RequestsError:
+                logger.error(f'{self.twitter_account} | проблема с прокси! Проверьте прокси!')
+                await self.write_status(status='PROXY_ERR')
+                break
+
+            except KeyError:
                 continue
 
     async def get_name(self):
@@ -622,17 +636,36 @@ class TwitterTasksCompleter:
         return True
 
     async def complete_breath_session(self):
+        user_agent = UserAgent().chrome
+
+        headers = {
+            'authority': 'api.gm.io',
+            'accept': '*/*',
+            'accept-language': 'en-US,en;q=0.9',
+            'access-control-request-headers': 'authorization, content-type',
+            'access-control-request-method': 'POST',
+            'cache-control': 'no-cache',
+            'origin': 'https://well3.com',
+            'pragma': 'no-cache',
+            'referer': 'https://well3.com/',
+            'sec-fetch-dest': 'empty',
+            'sec-fetch-mode': 'cors',
+            'sec-fetch-site': 'cross-site',
+            'user-agent': user_agent,
+        }
+
         url = 'https://api.gm.io/ygpz/complete-breath-session'
-        headers = self.get_headers()
+        #headers = self.get_headers()
         headers['content-type'] = None
 
         res = await self.async_session.post(
             url=url,
             headers=headers,
         )
+
         
         retry = 0
-        while retry > 3:
+        while retry < 10:
             if res.status_code == 401 or res.status_code == 400:
                 result = await self.registration()
                 self.refresh_token = result['refreshToken']
@@ -643,6 +676,7 @@ class TwitterTasksCompleter:
                 url=url,
                 headers=headers,
                 )
+                retry += 1
             else:
                 break
         
@@ -697,9 +731,9 @@ class TwitterTasksCompleter:
             return False
         return True
 
-async def start_twitter_task(token: str, data: dict) -> bool:
+async def start_twitter_task(token: str, data: dict, сhoise: int) -> bool:
     try:
-        await TwitterTasksCompleter(token=token, data=data).start_tasks()
+        await TwitterTasksCompleter(token=token, data=data).start_tasks(сhoise)
     except KeyboardInterrupt:
         sys.exit(1)
 

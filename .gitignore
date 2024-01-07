@@ -13,6 +13,9 @@ suspended.txt
 ref_code.txt
 problems.txt
 actual_ref.txt
+private_keys.txt
+format.txt
+tasks.back
 
 # Исключение JSON-файлов с задачами
 status/token_db/tasks.json

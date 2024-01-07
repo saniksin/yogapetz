@@ -18,7 +18,7 @@ async def async_write_json(data, file_path):
 # Функция для обновления и выполнения задач
 async def process_tasks(file_path, source_data):
     tasks = await async_read_json(file_path)
-    
+
     # Обновление токенов
     token = 'account_token'
     proxy = 'account_proxy'
@@ -41,7 +41,7 @@ async def process_tasks(file_path, source_data):
                 # Токен
                 "refresh_token": None,
 
-                "pk": None,
+                "private_key": account['private_key'],
 
                 # Задачи твиттер
                 "tasks": [
@@ -75,6 +75,8 @@ async def process_tasks(file_path, source_data):
         if tasks[account[token]]['ref_code'] != account['ref_code']:
             tasks[account[token]]['ref_code'] = account['ref_code']
 
+        if tasks[account[token]]['private_key'] != account['private_key']:
+            tasks[account[token]]['private_key'] = account['private_key']
 
     # Добавляем обновления в базу данных
     for token, data in tasks.items():
