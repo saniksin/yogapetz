@@ -17,6 +17,7 @@ private_keys.txt
 format.txt
 tasks.back
 nft_stats.csv
+proxy_problem.txt
 
 # Исключение JSON-файлов с задачами
 status/token_db/tasks.json

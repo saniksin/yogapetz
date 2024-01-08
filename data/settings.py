@@ -13,3 +13,6 @@ ASYNC_SEMAPHORE = 25
 
 # WALLET min balance в WEI
 MIN_BALANCE = 33000000000000
+
+# Будут ли делатся твиттер задания False = нет. True = да.
+FAKE_TWITTER_ACTION = False

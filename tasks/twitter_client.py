@@ -22,8 +22,8 @@ from curl_cffi.requests.errors import RequestsError
 from eth_account.messages import encode_defunct
 from web3.exceptions import ContractLogicError, TransactionNotFound, Web3ValidationError
 
-from data.settings import SLEEP_FROM, SLEEP_TO, NUMBER_OF_ATTEMPTS, API_KEY, MIN_BALANCE, API_KEY
-from data.config import logger, PROBLEMS, BANNER_IMAGE, DB, ACTUAL_REF, WELL_ABI, NFT_STATS
+from data.settings import SLEEP_FROM, SLEEP_TO, NUMBER_OF_ATTEMPTS, API_KEY, MIN_BALANCE, API_KEY, FAKE_TWITTER_ACTION
+from data.config import logger, PROBLEMS, BANNER_IMAGE, DB, ACTUAL_REF, WELL_ABI, NFT_STATS, PROBLEM_PROXY
 from exeptions.exeptions import WrongCaptcha
 from utils.db_func import async_write_json, async_read_json
 from data.models import Networks, CONTRACT_ADDRESS
@@ -160,53 +160,55 @@ class TwitterTasksCompleter:
                                 continue
                         
                         # Выполняем основные твиттер таски (основные)
-                        for num, task in enumerate(self.account_tasks):
-                            if task['status'] == 'pending':
-                                task_type = task['type']
-                                changed = False
-                                
-                                if task_type == 'follow':
-                                    status = await self.follow_quest(username=task['target'])
-                                    if status:
-                                        self.account_tasks[num]['status'] = 'completed'
-                                        changed = True
-
-                                elif task_type == 'retweet':
-                                    try:
-                                        status = await self.like_and_reetweet_quest(tweet_id=task['tweet_id'])
+                        if not FAKE_TWITTER_ACTION:
+                        
+                            for num, task in enumerate(self.account_tasks):
+                                if task['status'] == 'pending':
+                                    task_type = task['type']
+                                    changed = False
+                                    
+                                    if task_type == 'follow':
+                                        status = await self.follow_quest(username=task['target'])
                                         if status:
                                             self.account_tasks[num]['status'] = 'completed'
                                             changed = True
-                                    except HTTPException as err:
-                                        if 'already retweeted' in str(err):
-                                            logger.warning(f'{self.twitter_account} | уже успешно репостнул {task["tweet_id"]}')
+
+                                    elif task_type == 'retweet':
+                                        try:
+                                            status = await self.like_and_reetweet_quest(tweet_id=task['tweet_id'])
+                                            if status:
+                                                self.account_tasks[num]['status'] = 'completed'
+                                                changed = True
+                                        except HTTPException as err:
+                                            if 'already retweeted' in str(err):
+                                                logger.warning(f'{self.twitter_account} | уже успешно репостнул {task["tweet_id"]}')
+                                                self.account_tasks[num]['status'] = 'completed'
+                                                changed = True
+                                            elif 'already_favorited' in str(err):
+                                                logger.warning(f'{self.twitter_account} | уже успешно лайкнул {task["tweet_id"]}')
+                                                self.account_tasks[num]['status'] = 'completed'
+                                                changed = True
+                                            else:
+                                                logger.error(f'Неизвестная ошибка: {err}')
+
+                                    elif task_type == 'update_banner':
+                                        image_bytes = await self.read_image_as_base64_encoded_bytes(BANNER_IMAGE)
+                                        media_id = await twitter.upload_image(image=image_bytes)
+                                        status = await twitter.update_profile_banner(media_id=media_id)
+                                        if status:
+                                            logger.success(f'{self.twitter_account} | Баннер был успешно установлен!')
                                             self.account_tasks[num]['status'] = 'completed'
                                             changed = True
-                                        elif 'already_favorited' in str(err):
-                                            logger.warning(f'{self.twitter_account} | уже успешно лайкнул {task["tweet_id"]}')
-                                            self.account_tasks[num]['status'] = 'completed'
-                                            changed = True
+                                            await self.sleep_after_action()
                                         else:
-                                            logger.error(f'Неизвестная ошибка: {err}')
+                                            logger.error(f'{self.twitter_account} | Баннер не был установлен!')
+                                            continue
 
-                                elif task_type == 'update_banner':
-                                    image_bytes = await self.read_image_as_base64_encoded_bytes(BANNER_IMAGE)
-                                    media_id = await twitter.upload_image(image=image_bytes)
-                                    status = await twitter.update_profile_banner(media_id=media_id)
-                                    if status:
-                                        logger.success(f'{self.twitter_account} | Баннер был успешно установлен!')
-                                        self.account_tasks[num]['status'] = 'completed'
-                                        changed = True
+                                    if changed:
+                                        await self.write_to_db()
+                                        if num + 1 == len(self.account_tasks):
+                                            break
                                         await self.sleep_after_action()
-                                    else:
-                                        logger.error(f'{self.twitter_account} | Баннер не был установлен!')
-                                        continue
-
-                                if changed:
-                                    await self.write_to_db()
-                                    if num + 1 == len(self.account_tasks):
-                                        break
-                                    await self.sleep_after_action()
 
                         # Меняем имя пользователя (цикл необходим потому что обновляется не с первого запроса)
                         # !!! ПОСЛЕ ДЕЙСВИЯ АККАУНТ БУДЕТ БРОШЕН В LOCKED!!! НАДО БУДЕТ ПРОХОДИТЬ КАПЧУ !!!
@@ -369,8 +371,8 @@ class TwitterTasksCompleter:
 
             except RequestsError:
                 logger.error(f'{self.twitter_account} | проблема с прокси! Проверьте прокси!')
-                await self.write_status(status='PROXY_ERR')
-                break
+                await self.write_status(status=None, path=PROBLEM_PROXY)
+                continue
 
             except KeyError:
                 continue
@@ -387,9 +389,11 @@ class TwitterTasksCompleter:
         """ Записывает текщий статус проблемного токена в соответсвующий файл """
         async with self.write_lock:
             async with aiofiles.open(file=path, mode='a', encoding='utf-8-sig') as f:
-                if path != PROBLEMS:
+                if path == ACTUAL_REF:
                     for item in status:
                         await f.write(f'{item}\n')
+                elif path == PROBLEM_PROXY:
+                    await f.write(f'{self.account_proxy}\n')
                 else:
                     await f.write(f'{self.account_token} | {self.account_proxy} | {self.ref_code} | {status}\n')
             await asyncio.sleep(0.25)
