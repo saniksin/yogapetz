@@ -45,6 +45,7 @@ class TwitterTasksCompleter:
         self.private_key = data['private_key']
         self.twitter_account_status = data['twitter_account_status']
         self.user_agent = UserAgent().chrome
+
         self.user_platform = random.choice(['macOS', 'Windows', 'Linux'])
         self.spare_ref_codes = spare_ref_codes
 
@@ -226,6 +227,8 @@ class TwitterTasksCompleter:
                                     await self.sleep_after_action()
                                 else:
                                     logger.error(f'{self.twitter_account} | не удалось выполнить breath session')
+                            else:
+                                logger.success(f'{self.twitter_account} | достиг лимита breath session 2/2')
 
                         for name, value in account_data['ygpzQuesting']['info']['specialProgress'].items():
                                 
@@ -270,7 +273,7 @@ class TwitterTasksCompleter:
                             else:
                                 logger.error(f'{self.twitter_account} | не удалось подписать сообщение и прикрепить кошелек')
                                 continue
-                            
+                                
                         if account_data['contractInfo']['rankupQuest'].get('currentRank', False):
                             current_rank = account_data['contractInfo']['rankupQuest']['currentRank']
                             signature = account_data['contractInfo']['rankupQuest']['signature']
@@ -351,16 +354,14 @@ class TwitterTasksCompleter:
 
     async def write_status(self, status, path=PROBLEMS):
         """ Записывает текщий статус проблемного токена в соответсвующий файл """
-        try:
-            async with aiofiles.open(file=path, mode='a', encoding='utf-8-sig') as f:
-                if path != PROBLEMS:
-                    for item in status:
-                        await f.write(f'{item}\n')
-                else:
-                    await f.write(f'{self.account_token} | {self.account_proxy} | {self.ref_code} | {status}\n')
-            await asyncio.sleep(0.25)
-        except OSError:
-            await self.write_status(status, path)
+      
+        async with aiofiles.open(file=path, mode='a', encoding='utf-8-sig') as f:
+            if path != PROBLEMS:
+                for item in status:
+                    await f.write(f'{item}\n')
+            else:
+                await f.write(f'{self.account_token} | {self.account_proxy} | {self.ref_code} | {status}\n')
+        await asyncio.sleep(0.25)
 
     async def sleep_after_action(self):
         """ Сон между действиями"""
@@ -1069,7 +1070,9 @@ class TwitterTasksCompleter:
 
 async def start_twitter_task(token: str, data: dict, сhoise: int, spare_ref_codes: list | None) -> bool:
     try:
-        await TwitterTasksCompleter(token=token, data=data, spare_ref_codes=spare_ref_codes).start_tasks(сhoise)
+        tasks = TwitterTasksCompleter(token=token, data=data, spare_ref_codes=spare_ref_codes)
+        await tasks.start_tasks(сhoise)
+        tasks.async_session.close()
     except KeyboardInterrupt:
         sys.exit(1)
         
