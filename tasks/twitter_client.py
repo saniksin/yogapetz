@@ -229,10 +229,12 @@ class TwitterTasksCompleter:
                                     await self.sleep_after_action()
                                 else:
                                     logger.error(f'{self.twitter_account} | не удалось выполнить breath session')
+                                    continue
                             else:
                                 human_readable_time = datetime.datetime.fromtimestamp(value['nextAvailableFrom'] / 1000)
                                 formatted_time = human_readable_time.strftime('%Y-%m-%d %H:%M:%S')
                                 logger.info(f"{self.twitter_account} | ближайшая breath session {formatted_time}.")
+                                break
 
                         for name, value in account_data['ygpzQuesting']['info']['specialProgress'].items():
                                 
@@ -257,57 +259,63 @@ class TwitterTasksCompleter:
                                 logger.error(f'Задача {name} не найдена в текущем списке задач!')
                     
                         logger.success(f'{self.twitter_account} | закончил все задания задания с твиттером')
-
                         break
+
                     elif option == 3:
-                        await self.login()
-                        account_data = await self.get_account_data()
-                        if not account_data['contractInfo']:
-                            signature = ('Welcome to Yogapetz\n' 
-                                        'Click "Sign" to continue.\n\n'
-                                        'Timestamp:\n'
-                                       f'{str(datetime.datetime.now().timestamp()).replace(".","")[:-3]}')
-                            
-                            await self.start_welcome_sign_msg(signature)
-
+                        if self.register:
+                            await self.login()
                             account_data = await self.get_account_data()
-                            if account_data.get('contractInfo', False):
-                                logger.success(f'{self.twitter_account} | успешно подписал сообщение и прикрепил кошелек')
-                                await self.sleep_after_action()
-                            else:
-                                logger.error(f'{self.twitter_account} | не удалось подписать сообщение и прикрепить кошелек')
-                                continue
+                            if not account_data['contractInfo']:
+                                signature = ('Welcome to Yogapetz\n' 
+                                            'Click "Sign" to continue.\n\n'
+                                            'Timestamp:\n'
+                                        f'{str(datetime.datetime.now().timestamp()).replace(".","")[:-3]}')
                                 
-                        if account_data['contractInfo']['rankupQuest'].get('currentRank', False):
-                            current_rank = account_data['contractInfo']['rankupQuest']['currentRank']
-                            signature = account_data['contractInfo']['rankupQuest']['signature']
+                                await self.start_welcome_sign_msg(signature)
+
+                                account_data = await self.get_account_data()
+                                if account_data.get('contractInfo', False):
+                                    logger.success(f'{self.twitter_account} | успешно подписал сообщение и прикрепил кошелек')
+                                    await self.sleep_after_action()
+                                else:
+                                    logger.error(f'{self.twitter_account} | не удалось подписать сообщение и прикрепить кошелек')
+                                    continue
                                 
-                            status = await self.start_rankup_quest(current_rank, signature)
-                            if status:
-                                await self.sleep_after_action()
+                            if account_data['contractInfo']['rankupQuest'].get('currentRank', False):
+                                current_rank = account_data['contractInfo']['rankupQuest']['currentRank']
+                                signature = account_data['contractInfo']['rankupQuest']['signature']
+                                    
+                                status = await self.start_rankup_quest(current_rank, signature)
+                                if status:
+                                    await self.sleep_after_action()
 
-                        if account_data['contractInfo']['dailyQuest'].get('nonce', False):
-                            nonce = account_data['contractInfo']['dailyQuest']['nonce']
-                            signature = account_data['contractInfo']['dailyQuest']['signature']
+                            if account_data['contractInfo']['dailyQuest'].get('nonce', False):
+                                nonce = account_data['contractInfo']['dailyQuest']['nonce']
+                                signature = account_data['contractInfo']['dailyQuest']['signature']
 
-                            status =await self.start_daily_quest(nonce, signature)
-                            if status:
-                                await self.sleep_after_action()
+                                status =await self.start_daily_quest(nonce, signature)
+                                if status:
+                                    await self.sleep_after_action()
+                        else:
+                            logger.warning(f'{self.twitter_account} | еще не зарегистирован')
                             
                     elif option == 4:
-                        await self.login()
-                        account_data = await self.get_account_data()
-                        if not account_data['referralInfo']['myReferralCodes']:
-                            await self.generate_invite_codes()
-                            logger.warning(f'{self.twitter_account} | не удалось получить реф. коды. Пробую сгенирировать...')
-                            continue
-                        ref_codes = [code_data['code'] for code_data in account_data['referralInfo']['myReferralCodes'] \
-                                    if 'usedAt' not in code_data]
-                        if ref_codes:
-                            await self.write_status(ref_codes, ACTUAL_REF)
-                            break
+                        if self.register:
+                            await self.login()
+                            account_data = await self.get_account_data()
+                            if not account_data['referralInfo']['myReferralCodes']:
+                                await self.generate_invite_codes()
+                                logger.warning(f'{self.twitter_account} | не удалось получить реф. коды. Пробую сгенирировать...')
+                                continue
+                            ref_codes = [code_data['code'] for code_data in account_data['referralInfo']['myReferralCodes'] \
+                                        if 'usedAt' not in code_data]
+                            if ref_codes:
+                                await self.write_status(ref_codes, ACTUAL_REF)
+                                break
+                            else:
+                                logger.info(f'{self.twitter_account} | нет неиспользованных кодов.')
                         else:
-                            logger.info(f'{self.twitter_account} | нет неиспользованных кодов.')
+                            logger.warning(f'{self.twitter_account} | еще не зарегистирован')
 
                     elif option == 5:
                         await self.nft_stats_prepere()

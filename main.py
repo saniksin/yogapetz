@@ -1,6 +1,8 @@
 import os
 import sys
+import random
 import itertools
+from functools import partial
 
 import asyncio
 import inquirer
@@ -66,6 +68,11 @@ def run_async_task(token, data, сhoise):
     asyncio.run(start_twitter_task(token, data, сhoise))
 
 
+def account_randomiser(semaphore, db, option):
+    db_list = [partial(start_limited_task, semaphore, token, data, option) for token, data in db.items()]
+    random.shuffle(db_list)
+    return db_list
+
 async def main():
     accounts_list: list[str] = get_accounts_info(ACCOUNTS)
     proxies_list: list[str] = get_accounts_info(PROXYS)
@@ -94,6 +101,8 @@ async def main():
         sys.exit(1)
 
     user_choice = get_action()
+    
+    semaphore = asyncio.Semaphore(ASYNC_SEMAPHORE)
 
     if user_choice == '   1) Регистрация и cтартовые задачи':
         actual_to_work = await clear_complete(db)
@@ -101,11 +110,11 @@ async def main():
         if len(actual_to_work) == 0:
             logger.success('Все аккаунты успешно закончили работу! Везде статус заданий - сompleted')
             sys.exit(1)
-
+        
         logger.info(f'{len(actual_to_work)} аккаунтов еще не выполнили начальные задачи.. Начинаем. Игнорируется SUSPENDED и BAD_TOKEN')
         logger.info(f'Все проблемные акки будут записаны в problems.txt')
         
-        semaphore = asyncio.Semaphore(ASYNC_SEMAPHORE)
+        
         tasks = []
         for token, data in actual_to_work.items():
             task = asyncio.create_task(start_limited_task(semaphore, token, data, 1, spare_ref_codes=ref_codes))
@@ -114,42 +123,29 @@ async def main():
         await asyncio.wait(tasks)
 
     elif user_choice == '   2) Ежедевные задачи':
-        semaphore = asyncio.Semaphore(ASYNC_SEMAPHORE)
-        tasks = []
-        for token, data in db.items():
-            task = asyncio.create_task(start_limited_task(semaphore, token, data, 1))
-            tasks.append(task)
-
+        
+        db_list = account_randomiser(semaphore, db, option=1)
+        tasks = [asyncio.create_task(account()) for account in db_list]
         await asyncio.wait(tasks)
 
     elif user_choice == '   3) Минт книг у мастера квестов':
-        semaphore = asyncio.Semaphore(ASYNC_SEMAPHORE)
-        tasks = []
-        for token, data in db.items():
-            task = asyncio.create_task(start_limited_task(semaphore, token, data, 3))
-            tasks.append(task)
+        db_list = account_randomiser(semaphore, db, option=3)
 
+        tasks = [asyncio.create_task(account()) for account in db_list]
         await asyncio.wait(tasks)
 
     elif user_choice == '   4) Собрать реф коды':
-        semaphore = asyncio.Semaphore(ASYNC_SEMAPHORE)
-        tasks = []
-        for token, data in db.items():
-            task = asyncio.create_task(start_limited_task(semaphore, token, data, 4))
-            tasks.append(task)
+        db_list = account_randomiser(semaphore, db, option=4)
 
+        tasks = [asyncio.create_task(account()) for account in db_list]
         await asyncio.wait(tasks)
 
     elif user_choice == '   5) Собрать статистику (сминченные книги) и записать в csv file':
         os.remove(NST_STATS)
-        semaphore = asyncio.Semaphore(ASYNC_SEMAPHORE)
-        tasks = []
-        for token, data in db.items():
-            task = asyncio.create_task(start_limited_task(semaphore, token, data, 5))
-            tasks.append(task)
+        db_list = account_randomiser(semaphore, db, option=5)
 
+        tasks = [asyncio.create_task(account()) for account in db_list]
         await asyncio.wait(tasks)
-        read_and_summarize_nft_stats(NST_STATS)
 
     elif user_choice == '   6) Вывести статистику':
         read_and_summarize_nft_stats(NST_STATS)
