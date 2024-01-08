@@ -25,12 +25,12 @@ LOG = os.path.join(STATUS_DIR, 'log.txt')
 DB = os.path.join(DB_DIR, 'tasks.json')
 ACTUAL_REF = os.path.join(ACCOUNTS_DIR, 'actual_ref.txt')
 PRIVATE_KEYS = os.path.join(ACCOUNTS_DIR, 'private_keys.txt')
-NST_STATS = os.path.join(STATUS_DIR, 'nft_stats.csv')
+NFT_STATS = os.path.join(STATUS_DIR, 'nft_stats.csv')
 
 WELL_ABI = os.path.join(ABIS_DIR, 'well3.json')
 METAMASK = os.path.join(EXTENSION_DIR, 'metamask')
 BANNER_IMAGE = os.path.join(ACCOUNTS_DIR, 'banner.jpg')
 
-IMPORTANT_FILES = [ACCOUNTS, PROXYS, CODES, PROBLEMS, LOG, DB, ACTUAL_REF, PRIVATE_KEYS]
+IMPORTANT_FILES = [ACCOUNTS, PROXYS, CODES, PROBLEMS, LOG, DB, ACTUAL_REF, PRIVATE_KEYS, NFT_STATS]
 
 logger.add(LOG, format='{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}', level='DEBUG')

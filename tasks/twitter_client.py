@@ -23,7 +23,7 @@ from eth_account.messages import encode_defunct
 from web3.exceptions import ContractLogicError, TransactionNotFound, Web3ValidationError
 
 from data.settings import SLEEP_FROM, SLEEP_TO, NUMBER_OF_ATTEMPTS, API_KEY, MIN_BALANCE, API_KEY
-from data.config import logger, PROBLEMS, BANNER_IMAGE, DB, ACTUAL_REF, WELL_ABI, NST_STATS
+from data.config import logger, PROBLEMS, BANNER_IMAGE, DB, ACTUAL_REF, WELL_ABI, NFT_STATS
 from exeptions.exeptions import WrongCaptcha
 from utils.db_func import async_write_json, async_read_json
 from data.models import Networks, CONTRACT_ADDRESS
@@ -78,6 +78,9 @@ class TwitterTasksCompleter:
 
     async def start_tasks(self, option: int):
         """ Стартуем задачи """
+        
+        # if self.twitter_account_status not in ["SUSPENDED", "BAD_TOKEN"]:
+        #     return
 
         if self.twitter_account_status == "SUSPENDED":
             await self.write_status("SUSPENDED")
@@ -108,11 +111,24 @@ class TwitterTasksCompleter:
                         await self.write_status(status="Unauthorized")
                         break
                     except Forbidden:
-                        logger.error(f'Действие учетной записи приостановлено (бан)! Токен - {self.twitter_account}')
-                        self.twitter_account_status = "SUSPENDED"
-                        await self.write_to_db()
-                        await self.write_status(status='SUSPENDED')
-                        break
+                        if self.twitter_account.status != 'GOOD':
+                            logger.error(f'{self.twitter_account} | Возникла проблема с аккаунтом! Текущий статус аккаунта = {self.twitter_account.status}')
+                            if self.twitter_account.status == 'BAD_TOKEN':
+                                logger.warning(f'Неверный токен - {self.twitter_account}')
+                                self.twitter_account_status = "BAD_TOKEN"
+                                await self.write_to_db()
+                                await self.write_status(status='BAD_TOKEN')
+                                break
+                            elif self.twitter_account.status == 'SUSPENDED':
+                                logger.warning(f'Действие учетной записи приостановлено (бан)! Токен - {self.twitter_account}')
+                                await self.write_status(status='SUSPENDED')
+                                self.twitter_account_status = "SUSPENDED"
+                                await self.write_to_db()
+                                break
+                            elif self.twitter_account.status == "LOCKED":
+                                logger.warning(f'Учетная запись заморожена (лок)! Требуется прохождение капчи. Токен - {self.twitter_account}')
+                                await self.write_status(status='LOCKED')
+                                break
 
                     if option == 1:
                         # Регистрация
@@ -1083,7 +1099,7 @@ class TwitterTasksCompleter:
             return False
         return True
     
-    async def write_nft_stats(self, address, nft_stats, file_path=NST_STATS):
+    async def write_nft_stats(self, address, nft_stats, file_path=NFT_STATS):
         headers = ["address", "uncommon", "rare", "legendary", "mythical"]
 
         file_exists = os.path.exists(file_path)

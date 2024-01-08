@@ -9,7 +9,7 @@ import inquirer
 from termcolor import colored
 from inquirer.themes import load_theme_from_dict as loadth
 
-from data.config import ACCOUNTS, PROXYS, CODES, logger, DB, PRIVATE_KEYS, NST_STATS
+from data.config import ACCOUNTS, PROXYS, CODES, logger, DB, PRIVATE_KEYS, NFT_STATS
 from utils.policy import set_windows_event_loop_policy
 from utils.validate_token import validate_token
 from utils.db_func import process_tasks, clear_complete
@@ -141,14 +141,15 @@ async def main():
         await asyncio.wait(tasks)
 
     elif user_choice == '   5) Собрать статистику (сминченные книги) и записать в csv file':
-        os.remove(NST_STATS)
+        os.remove(NFT_STATS)
         db_list = account_randomiser(semaphore, db, option=5)
 
         tasks = [asyncio.create_task(account()) for account in db_list]
         await asyncio.wait(tasks)
+        read_and_summarize_nft_stats(NFT_STATS)
 
     elif user_choice == '   6) Вывести статистику':
-        read_and_summarize_nft_stats(NST_STATS)
+        read_and_summarize_nft_stats(NFT_STATS)
     
 if __name__ == '__main__':
     create_files()
