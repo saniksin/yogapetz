@@ -340,7 +340,7 @@ class TwitterTasksCompleter:
                 continue
 
             except JSONDecodeError:
-                logger.error(f'{self.twitter_account} | Ошибка с получением ответа от API')
+                logger.error(f'{self.twitter_account} | Ошибка с получением ответа от API либо с файлом БД')
                 continue
 
             except RequestsError:
@@ -430,22 +430,43 @@ class TwitterTasksCompleter:
         return image_bytes
     
     async def registration(self):
-        url = 'https://www.googleapis.com/identitytoolkit/v3/relyingparty/createAuthUri?key=AIzaSyBPmETcQFfpDrw_eB6s8DCkDpYYBt3e8Wg'
-        json = {
-            "providerId": "twitter.com",
-            "continueUri": "https://auth.well3.com/__/auth/handler",
-            "customParameter": {}
-        }
+
+        version = self.user_agent.split('Chrome/')[1].split('.')[0]
+
+        url = 'https://www.googleapis.com/identitytoolkit/v3/relyingparty/createAuthUri'
         headers = {
-            "X-Client-Data":"CPWCywE=",
-            "content-type": "application/json"
+            'authority': 'www.googleapis.com',
+            'accept': '*/*',
+            'accept-language': 'en-US,en;q=0.9',
+            'content-type': 'application/json',
+            'origin': 'https://well3.com',
+            'referer': 'https://well3.com/',
+            'sec-ch-ua': f'"Not_A Brand";v="8", "Chromium";v="{version}", "Google Chrome";v="{version}"',
+            'sec-ch-ua-mobile': '?0',
+            'sec-ch-ua-platform': f'"{self.user_platform}"',
+            'sec-fetch-dest': 'empty',
+            'sec-fetch-mode': 'cors',
+            'sec-fetch-site': 'cross-site',
+            'user-agent': self.user_agent
         }
-        
+
+        params = {
+            'key': 'AIzaSyBPmETcQFfpDrw_eB6s8DCkDpYYBt3e8Wg',
+        }
+
+        json = {
+            'providerId': 'twitter.com',
+            'continueUri': 'https://well3.com/assets/__/auth/handler',
+            'customParameter': {},
+        }
+                
         response = await self.async_session.post(
             url=url,
+            params=params,
+            headers=headers,
             json=json,
-            headers=headers
         )
+
 
         answer = response.json()
         auth_url = answer['authUri']
@@ -858,7 +879,7 @@ class TwitterTasksCompleter:
         headers = {
             'authority': 'api.gm.io',
             'accept': 'application/json',
-            'accept-language': 'pl-PL,pl;q=0.9',
+            'accept-language': 'en-US,en;q=0.9',
             'authorization': self.id_token,
             'content-type': 'application/json',
             'origin': 'https://well3.com',
