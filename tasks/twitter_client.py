@@ -28,7 +28,6 @@ from exeptions.exeptions import WrongCaptcha
 from utils.db_func import async_write_json, async_read_json
 from data.models import Networks, CONTRACT_ADDRESS
 from tasks.eth_client import EthClient
-from utils.show_stats import read_and_summarize_nft_stats
 
 
 class TwitterTasksCompleter:
@@ -72,6 +71,7 @@ class TwitterTasksCompleter:
 
     def get_reserv_codes(self):
         self.ref_code = self.spare_ref_codes.pop(0) if self.spare_ref_codes else None
+        logger.warning(f'Осталось реф. кодов - {len(self.spare_ref_codes)}')
 
     async def start_tasks(self, option: int):
         """ Стартуем задачи """
@@ -97,12 +97,18 @@ class TwitterTasksCompleter:
                     self.twitter_client = twitter
                     # Совершаем любое действие чтобы обновить статус аккаунта
                     try:
-                        await self.get_name()
+                        status = await self.get_name()
                     except Unauthorized:
                         logger.error(f'{self.twitter_account} | Не удалось авторизироваться по данному токену! Проверьте токен')
                         self.twitter_account_status = "BAD_TOKEN"
                         await self.write_to_db()
                         await self.write_status(status="Unauthorized")
+                        break
+                    except Forbidden:
+                        logger.error(f'Действие учетной записи приостановлено (бан)! Токен - {self.twitter_account}')
+                        self.twitter_account_status = "SUSPENDED"
+                        await self.write_to_db()
+                        await self.write_status(status='SUSPENDED')
                         break
 
                     if option == 1:
@@ -340,6 +346,8 @@ class TwitterTasksCompleter:
 
         await self.twitter_client.request_username()
         await self.twitter_client._request_user_data(self.twitter_account.username)
+
+        return True
 
     async def write_status(self, status, path=PROBLEMS):
         """ Записывает текщий статус проблемного токена в соответсвующий файл """

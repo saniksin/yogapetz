@@ -103,6 +103,7 @@ async def main():
             sys.exit(1)
 
         logger.info(f'{len(actual_to_work)} аккаунтов еще не выполнили начальные задачи.. Начинаем. Игнорируется SUSPENDED и BAD_TOKEN')
+        logger.info(f'Все проблемные акки будут записаны в problems.txt')
         
         semaphore = asyncio.Semaphore(ASYNC_SEMAPHORE)
         tasks = []
