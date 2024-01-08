@@ -29,12 +29,15 @@ def read_and_summarize_nft_stats(file_path):
     # Выводим таблицу
     print(table)
 
-    # Выводим общую статистику
+    # Вычисляем общее количество для расчета процентов
+    total_nft = sum(total_stats.values())
+
+    # Выводим общую статистику с процентами
     total_table = PrettyTable()
-    total_table.field_names = ["Type", "Total"]
-    for type, total in total_stats.items():
-        total_table.add_row([type.capitalize(), total])
+    total_table.field_names = ["Type", "Total", "Percentage"]
+    for nft_type, total in total_stats.items():
+        percentage = (total / total_nft) * 100 if total_nft > 0 else 0
+        total_table.add_row([nft_type.capitalize(), total, f"{percentage:.2f}%"])
 
-    print("Общая статистика NFT:")
+    print(f"Всего NFT {total_nft}. Общая статистика: ")
     print(total_table)
-

@@ -1,18 +1,22 @@
 import json
 import aiofiles
+import asyncio
 
+write_lock = asyncio.Lock()
 
 # Функция для асинхронного чтения JSON файла
 async def async_read_json(file_path):
-    async with aiofiles.open(file_path, 'r') as file:
-        data = await file.read()
-        return json.loads(data)
+    async with write_lock: 
+        async with aiofiles.open(file_path, 'r') as file:
+            data = await file.read()
+            return json.loads(data)
     
 
 # Функция для асинхронной записи в JSON файл
 async def async_write_json(data, file_path):
-    async with aiofiles.open(file_path, 'w') as file:
-        await file.write(json.dumps(data, indent=4))
+    async with write_lock: 
+        async with aiofiles.open(file_path, 'w') as file:
+            await file.write(json.dumps(data, indent=4))
 
 
 # Функция для обновления и выполнения задач

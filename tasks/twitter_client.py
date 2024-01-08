@@ -48,27 +48,29 @@ class TwitterTasksCompleter:
 
         self.user_platform = random.choice(['macOS', 'Windows', 'Linux'])
         self.spare_ref_codes = spare_ref_codes
-
+        self.write_lock = asyncio.Lock()
         # Рандомизируем список задач
         random.shuffle(self.account_tasks)
 
         self.twitter_client: TwitterClient | None = None
         self.twitter_account: TwitterAccount = TwitterAccount(token)
+        self.write_lock = asyncio.Lock()
     
     async def write_to_db(self):
-        actual_db = await async_read_json(DB)
-        actual_db[self.account_token] = {
-            'register': self.register,
-            'id_token': self.id_token,
-            'refresh_token': self.refresh_token,
-            'ref_code': self.ref_code,
-            'proxy': self.account_proxy,
-            'private_key': self.private_key,
-            'twitter_account_status': self.twitter_account_status,
-            'tasks': self.account_tasks,
-            'platform': self.platform
-        }
-        await async_write_json(actual_db, DB)
+        async with self.write_lock:
+            actual_db = await async_read_json(DB)
+            actual_db[self.account_token] = {
+                'register': self.register,
+                'id_token': self.id_token,
+                'refresh_token': self.refresh_token,
+                'ref_code': self.ref_code,
+                'proxy': self.account_proxy,
+                'private_key': self.private_key,
+                'twitter_account_status': self.twitter_account_status,
+                'tasks': self.account_tasks,
+                'platform': self.platform
+            }
+            await async_write_json(actual_db, DB)
 
     def get_reserv_codes(self):
         self.ref_code = self.spare_ref_codes.pop(0) if self.spare_ref_codes else None
@@ -212,7 +214,7 @@ class TwitterTasksCompleter:
 
                                 if value['nextAvailableFrom']:
                                     current_time = int(str(datetime.datetime.now().timestamp()).replace(".","")[:-3])
-                                    human_readable_time = datetime.datetime.fromtimestamp(current_time / 1000)
+                                    human_readable_time = datetime.datetime.fromtimestamp(value['nextAvailableFrom'] / 1000)
                                     formatted_time = human_readable_time.strftime('%Y-%m-%d %H:%M:%S')
                                     if value['nextAvailableFrom'] < current_time:
                                         status = await self.complete_breath_session()
@@ -223,12 +225,14 @@ class TwitterTasksCompleter:
                                     status = await self.complete_breath_session()
 
                                 if status:
-                                    logger.info(f'{self.twitter_account} | успешно выполнил breath session')
+                                    logger.success(f'{self.twitter_account} | успешно выполнил breath session')
                                     await self.sleep_after_action()
                                 else:
                                     logger.error(f'{self.twitter_account} | не удалось выполнить breath session')
                             else:
-                                logger.success(f'{self.twitter_account} | достиг лимита breath session 2/2')
+                                human_readable_time = datetime.datetime.fromtimestamp(value['nextAvailableFrom'] / 1000)
+                                formatted_time = human_readable_time.strftime('%Y-%m-%d %H:%M:%S')
+                                logger.info(f"{self.twitter_account} | ближайшая breath session {formatted_time}.")
 
                         for name, value in account_data['ygpzQuesting']['info']['specialProgress'].items():
                                 
@@ -243,7 +247,7 @@ class TwitterTasksCompleter:
                                         logger.info(f'{self.twitter_account} | подтверждение задачи {name}')
                                         status = await self.complete_other_tasks(task_name=name)
                                         if status:
-                                            logger.info(f'{self.twitter_account} | успешно подтвердил {name}')
+                                            logger.success(f'{self.twitter_account} | успешно подтвердил {name}')
                                             task['status'] = 'completed'
                                             await self.write_to_db()
                                             await self.sleep_after_action()
@@ -299,8 +303,11 @@ class TwitterTasksCompleter:
                             continue
                         ref_codes = [code_data['code'] for code_data in account_data['referralInfo']['myReferralCodes'] \
                                     if 'usedAt' not in code_data]
-                        await self.write_status(ref_codes, ACTUAL_REF)
-                        break
+                        if ref_codes:
+                            await self.write_status(ref_codes, ACTUAL_REF)
+                            break
+                        else:
+                            logger.info(f'{self.twitter_account} | нет неиспользованных кодов.')
 
                     elif option == 5:
                         await self.nft_stats_prepere()
@@ -343,7 +350,7 @@ class TwitterTasksCompleter:
 
             except KeyError:
                 continue
-
+            
     async def get_name(self):
         """ Возвращает никнейм пользователя, не username """
 
@@ -354,14 +361,14 @@ class TwitterTasksCompleter:
 
     async def write_status(self, status, path=PROBLEMS):
         """ Записывает текщий статус проблемного токена в соответсвующий файл """
-      
-        async with aiofiles.open(file=path, mode='a', encoding='utf-8-sig') as f:
-            if path != PROBLEMS:
-                for item in status:
-                    await f.write(f'{item}\n')
-            else:
-                await f.write(f'{self.account_token} | {self.account_proxy} | {self.ref_code} | {status}\n')
-        await asyncio.sleep(0.25)
+        async with self.write_lock:
+            async with aiofiles.open(file=path, mode='a', encoding='utf-8-sig') as f:
+                if path != PROBLEMS:
+                    for item in status:
+                        await f.write(f'{item}\n')
+                else:
+                    await f.write(f'{self.account_token} | {self.account_proxy} | {self.ref_code} | {status}\n')
+            await asyncio.sleep(0.25)
 
     async def sleep_after_action(self):
         """ Сон между действиями"""
@@ -1073,8 +1080,6 @@ async def start_twitter_task(token: str, data: dict, сhoise: int, spare_ref_cod
         tasks = TwitterTasksCompleter(token=token, data=data, spare_ref_codes=spare_ref_codes)
         await tasks.start_tasks(сhoise)
         tasks.async_session.close()
-    except KeyboardInterrupt:
-        sys.exit(1)
         
     except WrongCaptcha:
         pass
