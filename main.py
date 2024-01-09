@@ -31,7 +31,7 @@ async def start_limited_task(semaphore, token, data, choice, len_db, spare_ref_c
                 completed_tasks[0] += 1
                 remaining_tasks = len_db - completed_tasks[0]
             
-            logger.info(f'Всего в задач: {len_db}. Осталось задач: {remaining_tasks}')
+            logger.info(f'Всего задач: {len_db}. Осталось задач: {remaining_tasks}')
     except asyncio.CancelledError:
         pass
 
