@@ -985,7 +985,7 @@ class TwitterTasksCompleter:
         balance = await bnb_client.w3.eth.get_balance(bnb_client.account.address)
         if balance <= MIN_BALANCE:
             logger.error(f'{self.twitter_account} | нету достаточного кол-ва bnb в сети opBNB')
-            return
+            return False
 
         abi = await self.get_abi()
         contract = bnb_client.w3.eth.contract(address=CONTRACT_ADDRESS, abi=abi)
@@ -1006,9 +1006,10 @@ class TwitterTasksCompleter:
             ).estimate_gas({'from': bnb_client.account.address})
         except Web3ValidationError:
             logger.error(f'{self.twitter_account} | ошибка в логике контракта')
+            return False
         except ContractLogicError:
             logger.warning(f'{self.twitter_account} | минт пока недоступен')
-            return
+            return False
 
         transaction = await contract.functions.rankupQuestAmount(
             rank,
@@ -1038,7 +1039,7 @@ class TwitterTasksCompleter:
         balance = await bnb_client.w3.eth.get_balance(bnb_client.account.address)
         if balance <= MIN_BALANCE:
             logger.error(f'{self.twitter_account} | нету достаточного кол-ва bnb в сети opBNB')
-            return
+            return False
 
         abi = await self.get_abi()
         contract = bnb_client.w3.eth.contract(address=CONTRACT_ADDRESS, abi=abi)
@@ -1052,9 +1053,10 @@ class TwitterTasksCompleter:
             ).estimate_gas({'from': bnb_client.account.address})
         except Web3ValidationError:
             logger.error(f'{self.twitter_account} | ошибка в логике контракта')
+            return False
         except ContractLogicError:
             logger.warning(f'{self.twitter_account} | минт пока недоступен')
-            return
+            return False
 
         transaction = await contract.functions.nonceQuest(
             request_nonce,
