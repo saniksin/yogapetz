@@ -18,6 +18,8 @@ format.txt
 tasks.back
 nft_stats.csv
 proxy_problem.txt
+low_balance.txt
+
 
 # Исключение JSON-файлов с задачами
 status/token_db/tasks.json

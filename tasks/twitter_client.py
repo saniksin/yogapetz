@@ -23,7 +23,7 @@ from eth_account.messages import encode_defunct
 from web3.exceptions import ContractLogicError, TransactionNotFound, Web3ValidationError
 
 from data.settings import SLEEP_FROM, SLEEP_TO, NUMBER_OF_ATTEMPTS, API_KEY, MIN_BALANCE, API_KEY, FAKE_TWITTER_ACTION
-from data.config import logger, PROBLEMS, BANNER_IMAGE, DB, ACTUAL_REF, WELL_ABI, NFT_STATS, PROBLEM_PROXY
+from data.config import logger, PROBLEMS, BANNER_IMAGE, DB, ACTUAL_REF, WELL_ABI, NFT_STATS, PROBLEM_PROXY, LOW_BALANCE
 from exeptions.exeptions import WrongCaptcha
 from utils.db_func import async_write_json, async_read_json
 from data.models import Networks, CONTRACT_ADDRESS
@@ -394,6 +394,8 @@ class TwitterTasksCompleter:
                         await f.write(f'{item}\n')
                 elif path == PROBLEM_PROXY:
                     await f.write(f'{self.account_proxy}\n')
+                elif path == LOW_BALANCE:
+                    await f.write(f'{status}\n')
                 else:
                     await f.write(f'{self.account_token} | {self.account_proxy} | {self.ref_code} | {status}\n')
             await asyncio.sleep(0.25)
@@ -1039,6 +1041,7 @@ class TwitterTasksCompleter:
         balance = await bnb_client.w3.eth.get_balance(bnb_client.account.address)
         if balance <= MIN_BALANCE:
             logger.error(f'{self.twitter_account} | нету достаточного кол-ва bnb в сети opBNB')
+            await self.write_status(bnb_client.account.address, LOW_BALANCE)
             return False
 
         abi = await self.get_abi()

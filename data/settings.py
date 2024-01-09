@@ -9,7 +9,7 @@ NUMBER_OF_ATTEMPTS = 10
 API_KEY = 'xxxxxx'
 
 # Количество акков одновременно в асинк запросах
-ASYNC_SEMAPHORE = 25
+ASYNC_SEMAPHORE = 50
 
 # WALLET min balance в WEI
 MIN_BALANCE = 33000000000000
