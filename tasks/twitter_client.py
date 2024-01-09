@@ -311,7 +311,7 @@ class TwitterTasksCompleter:
                                 nonce = account_data['contractInfo']['dailyQuest']['nonce']
                                 signature = account_data['contractInfo']['dailyQuest']['signature']
 
-                                status =await self.start_daily_quest(nonce, signature)
+                                status = await self.start_daily_quest(nonce, signature)
                                 if status:
                                     await self.sleep_after_action()
                         else:
@@ -1026,8 +1026,10 @@ class TwitterTasksCompleter:
         msg = await self.wait_tx_status(client=bnb_client, tx_hash=txn_hash.hex())
         if 'успешно' in msg:
             logger.success(msg)
+            return True
         else:
             logger.error(msg)
+            return False
 
     async def start_daily_quest(self, request_nonce, signature):
         
@@ -1069,8 +1071,10 @@ class TwitterTasksCompleter:
         msg = await self.wait_tx_status(client=bnb_client, tx_hash=txn_hash.hex())
         if 'успешно' in msg:
             logger.success(msg)
+            return True
         else:
             logger.error(msg)
+            return False
 
     async def generate_invite_codes(self):
         headers = self.get_headers()

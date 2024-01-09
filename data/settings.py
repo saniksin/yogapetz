@@ -1,6 +1,6 @@
 # СОН МЕЖДУ ДЕЙСВИЯМИ (В СЕКУНДАХ)
-SLEEP_FROM = 5 
-SLEEP_TO = 15
+SLEEP_FROM = 10 
+SLEEP_TO = 25
 
 # КОЛ-ВО ПОПЫТОК
 NUMBER_OF_ATTEMPTS = 10
