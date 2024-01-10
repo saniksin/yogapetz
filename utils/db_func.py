@@ -27,7 +27,7 @@ async def process_tasks(file_path, source_data):
         {"type": "follow", "target": "GMioETH", "status": "pending"},
         {"type": "follow", "target": "keung", "status": "pending"},
         {"type": "follow", "target": "Yogapetz", "status": "pending"},
-        {"type": "retweet", "tweet_id": "1741493362858062271", "status": "pending"},
+        {"type": "retweet", "tweet_id": "1741493362858062271", "status": "completed"},
         {"type": "retweet", "tweet_id": "1742132803142299950", "status": "completed"},
         {"type": "retweet", "tweet_id": "1742530102221771001", "status": "completed"},
         {"type": "retweet", "tweet_id": "1743249418357194952", "status": "completed"},
@@ -35,19 +35,21 @@ async def process_tasks(file_path, source_data):
         {"type": "update_banner", "status": "pending"},
         {"type": "retweet", "tweet_id": "1744373398934003773", "status": "completed"},
         {"type": "retweet", "tweet_id": "1745127428039847937", "status": "pending"},
+        {"type": "retweet", "tweet_id": "1745143426642030966", "status": "pending"},
     ]
-    
+
     platform_list = [
         {"task": "set-well-twitter-profile-banner", "status": "pending"},
         {"task": "retweet-yogapetz-1743364888586764724", "status": "completed"},
         {"task": "retweet-yogapetz-1742530102221771001", "status": "completed"},
         {"task": "retweet-Aizcalibur-1743249418357194952", "status": "completed"},
-        {"task": "retweet-keung-1741493362858062271", "status": "pending"},
+        {"task": "retweet-keung-1741493362858062271", "status": "completed"},
         {"task": "follow-yogapetz", "status": "pending"},
         {"task": "follow-keung", "status": "pending"},
         {"task": "follow-gmio", "status": "pending"},
         {"task": "retweet-BNBCHAIN-1744373398934003773", "status": "completed"},
         {"task": "retweet-yogapetz-1745127428039847937", "status": "pending"},
+        {"task": "retweet-keung-1745143426642030966", "status": "pending"},
     ]
 
     # Обновление токенов
@@ -116,7 +118,7 @@ async def process_tasks(file_path, source_data):
         # Проходим по фактической базе данных обновляем статусы неактуальных задач
         for actual_task in data['platform']:
             if not actual_task["task"].startswith('retweet') or actual_task["task"] in [
-                'retweet-keung-1741493362858062271', 
+                'retweet-keung-1745143426642030966', 
                 'retweet-yogapetz-1745127428039847937'
             ]:
                 continue
@@ -124,7 +126,7 @@ async def process_tasks(file_path, source_data):
             # Ищем соответствующую задачу в первоначальном списке
             for task in platform_list:
                 if not task["task"].startswith('retweet') or actual_task["task"] in [
-                'retweet-keung-1741493362858062271', 
+                'retweet-keung-1745143426642030966', 
                 'retweet-yogapetz-1745127428039847937'
                 ]:
                     continue
@@ -134,15 +136,24 @@ async def process_tasks(file_path, source_data):
                         if actual_task['status'] != task['status']:
                             actual_task['status'] = task['status']
 
+
+        new_task = {"type": "retweet", "tweet_id": "1745127428039847937", "status": "pending"},
+        new_task2 = {"type": "retweet", "tweet_id": "1745143426642030966", "status": "pending"},
+
         if len(data['tasks']) != len(tasks_list):
-            data['tasks'] += [
-                {"type": "retweet", "tweet_id": "1745127428039847937", "status": "pending"},
-            ]
+            if new_task not in data['tasks']:
+                data['tasks'] += new_task
+            if new_task2 not in data['tasks']:
+                 data['tasks'] += new_task2
+        
+        new_task = {"task": "retweet-keung-1745143426642030966", "status": "pending"},
+        new_task2 = {"task": "retweet-yogapetz-1745127428039847937", "status": "pending"},
 
         if len(data['platform']) != len(platform_list):
-            data['platform'] += [
-                {"task": "retweet-yogapetz-1745127428039847937", "status": "pending"},
-            ]
+            if new_task not in data['platform']:
+                data['platform'] += new_task
+            if new_task2 not in data['platform']:
+                 data['platform'] += new_task2
 
     await async_write_json(tasks, file_path)
 

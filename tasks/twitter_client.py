@@ -265,6 +265,7 @@ class TwitterTasksCompleter:
 
 
                         for name, value in account_data['ygpzQuesting']['info']['specialProgress'].items():
+                            
                             if name == 'add-well-to-twitter-profile':
                                 continue
 
