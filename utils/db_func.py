@@ -23,6 +23,33 @@ async def async_write_json(data, file_path):
 async def process_tasks(file_path, source_data):
     tasks = await async_read_json(file_path)
 
+    tasks_list = [
+        {"type": "follow", "target": "GMioETH", "status": "pending"},
+        {"type": "follow", "target": "keung", "status": "pending"},
+        {"type": "follow", "target": "Yogapetz", "status": "pending"},
+        {"type": "retweet", "tweet_id": "1741493362858062271", "status": "pending"},
+        {"type": "retweet", "tweet_id": "1742132803142299950", "status": "completed"},
+        {"type": "retweet", "tweet_id": "1742530102221771001", "status": "completed"},
+        {"type": "retweet", "tweet_id": "1743249418357194952", "status": "completed"},
+        {"type": "retweet", "tweet_id": "1743364888586764724", "status": "completed"},
+        {"type": "update_banner", "status": "pending"},
+        {"type": "retweet", "tweet_id": "1744373398934003773", "status": "completed"},
+        {"type": "retweet", "tweet_id": "1745127428039847937", "status": "pending"},
+    ]
+    
+    platform_list = [
+        {"task": "set-well-twitter-profile-banner", "status": "pending"},
+        {"task": "retweet-yogapetz-1743364888586764724", "status": "completed"},
+        {"task": "retweet-yogapetz-1742530102221771001", "status": "completed"},
+        {"task": "retweet-Aizcalibur-1743249418357194952", "status": "completed"},
+        {"task": "retweet-keung-1741493362858062271", "status": "pending"},
+        {"task": "follow-yogapetz", "status": "pending"},
+        {"task": "follow-keung", "status": "pending"},
+        {"task": "follow-gmio", "status": "pending"},
+        {"task": "retweet-BNBCHAIN-1744373398934003773", "status": "completed"},
+        {"task": "retweet-yogapetz-1745127428039847937", "status": "pending"},
+    ]
+
     # Обновление токенов
     token = 'account_token'
     proxy = 'account_proxy'
@@ -49,31 +76,10 @@ async def process_tasks(file_path, source_data):
 
                 "twitter_account_status": None,
                 # Задачи твиттер
-                "tasks": [
-                    {"type": "follow", "target": "GMioETH", "status": "pending"},
-                    {"type": "follow", "target": "keung", "status": "pending"},
-                    {"type": "follow", "target": "Yogapetz", "status": "pending"},
-                    {"type": "retweet", "tweet_id": "1741493362858062271", "status": "pending"},
-                    {"type": "retweet", "tweet_id": "1742132803142299950", "status": "completed"},
-                    {"type": "retweet", "tweet_id": "1742530102221771001", "status": "pending"},
-                    {"type": "retweet", "tweet_id": "1743249418357194952", "status": "pending"},
-                    {"type": "retweet", "tweet_id": "1743364888586764724", "status": "pending"},
-                    {"type": "update_banner", "status": "pending"},
-                    {"type": "retweet", "tweet_id": "1744373398934003773", "status": "pending"}
-                ],
+                "tasks": tasks_list,
 
                 # Задания на платформе
-                "platform": [
-                    {"task": "set-well-twitter-profile-banner", "status": "pending"},
-                    {"task": "retweet-yogapetz-1743364888586764724", "status": "pending"},
-                    {"task": "retweet-yogapetz-1742530102221771001", "status": "pending"},
-                    {"task": "retweet-Aizcalibur-1743249418357194952", "status": "pending"},
-                    {"task": "retweet-keung-1741493362858062271", "status": "pending"},
-                    {"task": "follow-yogapetz", "status": "pending"},
-                    {"task": "follow-keung", "status": "pending"},
-                    {"task": "follow-gmio", "status": "pending"},
-                    {"task": "retweet-BNBCHAIN-1744373398934003773", "status": "pending"},   
-                ]
+                "platform": platform_list,
             }
             
         if tasks[account[token]]['proxy'] != account[proxy]:
@@ -90,36 +96,53 @@ async def process_tasks(file_path, source_data):
     # Добавляем обновления в базу данных
     for token, data in tasks.items():
 
-        # Актуальные задачи (новые)
-        if len(data['tasks']) != 10:
+        # Актуализируем новые задачи
+
+        # Проходим по фактической базе данных обновляем статусы неактуальных задач
+        for actual_task in data['tasks']:
+            if actual_task["type"] != "retweet":
+                continue
+
+            # Ищем соответствующую задачу в первоначальном списке
+            for task in tasks_list:
+                if task["type"] != "retweet":
+                    continue
+
+                if task['status'] == 'completed':
+                    if actual_task['tweet_id'] == task['tweet_id']:
+                        if actual_task['status'] != task['status']:
+                            actual_task['status'] = task['status']
+        
+        # Проходим по фактической базе данных обновляем статусы неактуальных задач
+        for actual_task in data['platform']:
+            if not actual_task["task"].startswith('retweet') or actual_task["task"] in [
+                'retweet-keung-1741493362858062271', 
+                'retweet-yogapetz-1745127428039847937'
+            ]:
+                continue
+
+            # Ищем соответствующую задачу в первоначальном списке
+            for task in platform_list:
+                if not task["task"].startswith('retweet') or actual_task["task"] in [
+                'retweet-keung-1741493362858062271', 
+                'retweet-yogapetz-1745127428039847937'
+                ]:
+                    continue
+
+                if task['status'] == 'completed':
+                    if actual_task['task'] == task['task']:
+                        if actual_task['status'] != task['status']:
+                            actual_task['status'] = task['status']
+
+        if len(data['tasks']) != len(tasks_list):
             data['tasks'] += [
-                {"type": "retweet", "tweet_id": "1744373398934003773", "status": "pending"}
+                {"type": "retweet", "tweet_id": "1745127428039847937", "status": "pending"},
             ]
 
-        if len(data['platform']) != 9:
+        if len(data['platform']) != len(platform_list):
             data['platform'] += [
-                {"task": "retweet-BNBCHAIN-1744373398934003773", "status": "pending"}, 
+                {"task": "retweet-yogapetz-1745127428039847937", "status": "pending"},
             ]
-
-        # # Добавляю таски в бд
-        # try:
-        #     _ = data['platform']
-        # except KeyError:
-        #     data['platform'] = [
-        #             {"task": "set-well-twitter-profile-banner", "status": "pending"},
-        #             {"task": "retweet-yogapetz-1743364888586764724", "status": "pending"},
-        #             {"task": "retweet-yogapetz-1742530102221771001", "status": "pending"},
-        #             {"task": "retweet-Aizcalibur-1743249418357194952", "status": "pending"},
-        #             {"task": "retweet-keung-1741493362858062271", "status": "pending"},
-        #             {"task": "follow-yogapetz", "status": "pending"},
-        #             {"task": "follow-keung", "status": "pending"},
-        #             {"task": "follow-gmio", "status": "pending"}, 
-        #         ]
-        # try:
-        #     _ = data["twitter_account_status"]
-        # except KeyError:
-        #     data["twitter_account_status"] = None
-
 
     await async_write_json(tasks, file_path)
 
