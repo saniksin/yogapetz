@@ -248,11 +248,21 @@ class TwitterTasksCompleter:
                                 else:
                                     logger.error(f'{self.twitter_account} | не удалось выполнить breath session')
                                     continue
-                            else:
-                                human_readable_time = datetime.datetime.fromtimestamp(value['nextAvailableFrom'] / 1000)
-                                formatted_time = human_readable_time.strftime('%Y-%m-%d %H:%M:%S')
-                                logger.info(f"{self.twitter_account} | ближайшая breath session {formatted_time}.")
-                                break
+                            elif "complete-breath-session" in name and value['value'] == 2:
+                                logger.info(f"{self.twitter_account} | выполнил лимит breath session.")
+                            
+                            if "complete-breath-session" not in name:
+                                if not value['expClaimed']:
+                                    status = await self.complete_other_tasks(task_name=name)
+                                    if status:
+                                        logger.success(f'{self.twitter_account} | успешно выполнил {name}')
+                                        await self.sleep_after_action()
+                                    else:
+                                        logger.error(f'{self.twitter_account} | не удалось выполнить {name}')
+                                        continue
+                                else:
+                                    logger.info(f'{self.twitter_account} | уже подтверил задачу {name}')
+
 
                         for name, value in account_data['ygpzQuesting']['info']['specialProgress'].items():
                                 
