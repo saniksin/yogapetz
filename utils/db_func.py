@@ -1,8 +1,14 @@
 import json
 import aiofiles
 import asyncio
+import shutil
+
+from data.config import BACKUP_DB, DB, BAD_TOKEN, BAD_PROXY, BAD_PK, DB_DIR
+from data.config import logger
+
 
 write_lock = asyncio.Lock()
+
 
 # Функция для асинхронного чтения JSON файла
 async def async_read_json(file_path):
@@ -173,3 +179,44 @@ async def clear_complete(db):
                 actual_accounts[token] = data
     
     return actual_accounts
+
+
+def clear_db_from_bad_tokens():
+    logger.info(f'Делаю бэкап db в {DB_DIR}')
+    shutil.copy(DB, BACKUP_DB)
+    with open(DB, "r") as f:
+        tasks_data = json.load(f)
+
+    bad_accounts = 0
+    for account_id, task_data in tasks_data.items():
+        if task_data["twitter_account_status"] in ["SUSPENDED", "BAD_TOKEN"]: 
+            bad_accounts += 1
+            with open(BAD_TOKEN, "a") as f:
+                f.write(account_id + "\n")
+            with open(BAD_PK, "a") as f:
+                f.write(task_data["private_key"] + "\n")
+            with open(BAD_PROXY, "a") as f:
+                f.write(task_data["proxy"] + "\n")
+
+    if bad_accounts > 0:
+
+        with open(BAD_TOKEN, 'r', encoding='utf-8-sig') as file:
+            bad_tokens: list[str] = [row.strip() for row in file]
+
+        for token in bad_tokens:
+            tasks_data.pop(token)
+
+        with open("status/token_db/tasks.json", "w") as f:
+            f.write(json.dumps(tasks_data, indent=4))
+
+        msg = (
+            f'База данных была успешно очищена от {len(bad_tokens)} аккаунтов.\n'
+            f'\t\tВсе плохие токен были сохранены в: {BAD_TOKEN}\n'
+            f'\t\tВсе приватные ключи от плохих токенов были сохранены в: {BAD_PK}\n'
+            f'\t\tВсе прокси от плохих токенов были сохранены в: {BAD_PROXY}\n'
+        )
+
+        logger.info(msg) 
+    
+    else:
+        logger.info('В базе данных нет плохих токенов!')

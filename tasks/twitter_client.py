@@ -128,6 +128,8 @@ class TwitterTasksCompleter:
                             elif self.twitter_account.status == "LOCKED":
                                 logger.warning(f'Учетная запись заморожена (лок)! Требуется прохождение капчи. Токен - {self.twitter_account}')
                                 await self.write_status(status='LOCKED')
+                                self.twitter_account_status = "LOCKED"
+                                await self.write_to_db()
                                 break
 
                     if option == 1:
@@ -369,6 +371,8 @@ class TwitterTasksCompleter:
                     elif self.twitter_account.status == "LOCKED":
                         logger.warning(f'Учетная запись заморожена (лок)! Требуется прохождение капчи. Токен - {self.twitter_account}')
                         await self.write_status(status='LOCKED')
+                        self.twitter_account_status = "LOCKED"
+                        await self.write_to_db()
                         break
                     continue
                 

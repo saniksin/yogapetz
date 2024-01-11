@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 from pathlib import Path
 
 from loguru import logger
@@ -28,6 +29,10 @@ PRIVATE_KEYS = os.path.join(ACCOUNTS_DIR, 'private_keys.txt')
 NFT_STATS = os.path.join(STATUS_DIR, 'nft_stats.csv')
 PROBLEM_PROXY = os.path.join(STATUS_DIR, 'proxy_problem.txt')
 LOW_BALANCE = os.path.join(STATUS_DIR, 'low_balance.txt')
+BACKUP_DB = os.path.join(DB_DIR, f'tasks_backup_{int(time.time())}.json')
+BAD_TOKEN = os.path.join(STATUS_DIR, 'token_deleted.txt')
+BAD_PK = os.path.join(STATUS_DIR, 'pk_deleted.txt')
+BAD_PROXY = os.path.join(STATUS_DIR, 'proxy_deleted.txt')
 
 WELL_ABI = os.path.join(ABIS_DIR, 'well3.json')
 METAMASK = os.path.join(EXTENSION_DIR, 'metamask')

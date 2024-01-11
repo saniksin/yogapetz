@@ -19,7 +19,10 @@ tasks.back
 nft_stats.csv
 proxy_problem.txt
 low_balance.txt
-
+tasks_backup_*
+token_deleted.txt
+pk_deleted.txt
+proxy_deleted.txt
 
 # Исключение JSON-файлов с задачами
 status/token_db/tasks.json

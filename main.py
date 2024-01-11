@@ -12,11 +12,12 @@ from inquirer.themes import load_theme_from_dict as loadth
 from data.config import ACCOUNTS, PROXYS, CODES, logger, DB, PRIVATE_KEYS, NFT_STATS
 from utils.policy import set_windows_event_loop_policy
 from utils.validate_token import validate_token
-from utils.db_func import process_tasks, clear_complete
+from utils.db_func import process_tasks, clear_complete, clear_db_from_bad_tokens
 from utils.create_files import create_files
 from tasks.twitter_client import start_twitter_task
 from data.settings import ASYNC_SEMAPHORE
 from utils.show_stats import read_and_summarize_nft_stats
+from utils.counter import bad_accounts_count
 
 
 completed_tasks = [0]
@@ -69,6 +70,7 @@ def get_action() -> str:
                 '   4) Собрать реф коды',
                 '   5) Собрать статистику (сминченные книги) и записать в csv file',
                 '   6) Вывести статистику',
+                '   7) Очистить db от SUSPENDED/BAD_TOKEN и выписать pk/proxy от них'
             ]
         )
     ]
@@ -83,6 +85,18 @@ def account_randomiser(semaphore, db, len_db, option):
     db_list = [partial(start_limited_task, semaphore, token, data, option, len_db) for token, data in db.items()]
     random.shuffle(db_list)
     return db_list
+
+
+def print_status(actual_to_work, bad_accounts):
+    if len(actual_to_work) == 0:
+        logger.success('Все аккаунты успешно закончили работу! Везде статус заданий - сompleted')
+        sys.exit(1)
+
+    msg = (f'{len(actual_to_work)} аккаунтов еще не выполнили начальные задачи. '
+        f'Игнорируется SUSPENDED/BAD_TOKEN/LOCKED в количестве: {bad_accounts}. Начинаем...')
+    logger.info(msg)
+    logger.info(f'Все проблемные акки будут записаны в problems.txt')
+
 
 async def main():
     accounts_list: list[str] = get_accounts_info(ACCOUNTS)
@@ -117,21 +131,27 @@ async def main():
 
     if user_choice == '   1) Регистрация и cтартовые задачи':
         actual_to_work = await clear_complete(db)
-
+        bad_accounts = bad_accounts_count()
+        
         if len(actual_to_work) == 0:
-            logger.success('Все аккаунты успешно закончили работу! Везде статус заданий - сompleted')
-            sys.exit(1)
-        
-        logger.info(f'{len(actual_to_work)} аккаунтов еще не выполнили начальные задачи.. Начинаем. Игнорируется SUSPENDED и BAD_TOKEN')
-        logger.info(f'Все проблемные акки будут записаны в problems.txt')
-        
-        
-        tasks = []
-        for token, data in actual_to_work.items():
-            task = asyncio.create_task(start_limited_task(semaphore, token, data, 1, len(actual_to_work), spare_ref_codes=ref_codes))
-            tasks.append(task)
+            print_status(actual_to_work, bad_accounts)
 
-        await asyncio.wait(tasks)
+        while len(actual_to_work) - bad_accounts > 0:
+
+            print_status(actual_to_work, bad_accounts)
+            
+            tasks = []
+            for token, data in actual_to_work.items():
+                task = asyncio.create_task(start_limited_task(semaphore, token, data, 1, len(actual_to_work), spare_ref_codes=ref_codes))
+                tasks.append(task)
+
+            await asyncio.wait(tasks)
+            db, len_db = await process_tasks(file_path=DB, source_data=formatted_accounts_list)
+            actual_to_work = await clear_complete(db)
+            bad_accounts = bad_accounts_count()
+            retry = True
+            if retry:
+                completed_tasks[0] = 0
 
     elif user_choice == '   2) Ежедевные задачи':
         
@@ -162,7 +182,10 @@ async def main():
     elif user_choice == '   6) Вывести статистику':
         read_and_summarize_nft_stats(NFT_STATS)
 
-    
+    elif user_choice == '   7) Очистить db от SUSPENDED/BAD_TOKEN и выписать pk/proxy от них':
+        clear_db_from_bad_tokens()
+
+
 if __name__ == '__main__':
     try:
         create_files()
