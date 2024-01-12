@@ -328,7 +328,7 @@ class TwitterTasksCompleter:
                                     if status:
                                         await self.sleep_after_action()
                             else:
-                                logger.error('Вы не добавили приватные ключи! В db pk = NONE')
+                                logger.error(f'{self.twitter_account} | вы не добавили приватный ключ! В db pk = null')
                         else:
                             logger.warning(f'{self.twitter_account} | еще не зарегистирован')
                             
