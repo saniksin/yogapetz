@@ -293,39 +293,42 @@ class TwitterTasksCompleter:
 
                     elif option == 3:
                         if self.register:
-                            await self.login()
-                            account_data = await self.get_account_data()
-                            if not account_data['contractInfo']:
-                                signature = ('Welcome to Yogapetz\n' 
-                                            'Click "Sign" to continue.\n\n'
-                                            'Timestamp:\n'
-                                        f'{str(datetime.datetime.now().timestamp()).replace(".","")[:-3]}')
-                                
-                                await self.start_welcome_sign_msg(signature)
-
+                            if self.private_key:
+                                await self.login()
                                 account_data = await self.get_account_data()
-                                if account_data.get('contractInfo', False):
-                                    logger.success(f'{self.twitter_account} | успешно подписал сообщение и прикрепил кошелек')
-                                    await self.sleep_after_action()
-                                else:
-                                    logger.error(f'{self.twitter_account} | не удалось подписать сообщение и прикрепить кошелек')
-                                    continue
-                                
-                            if account_data['contractInfo']['rankupQuest'].get('currentRank', False):
-                                current_rank = account_data['contractInfo']['rankupQuest']['currentRank']
-                                signature = account_data['contractInfo']['rankupQuest']['signature']
+                                if not account_data['contractInfo']:
+                                    signature = ('Welcome to Yogapetz\n' 
+                                                'Click "Sign" to continue.\n\n'
+                                                'Timestamp:\n'
+                                            f'{str(datetime.datetime.now().timestamp()).replace(".","")[:-3]}')
                                     
-                                status = await self.start_rankup_quest(current_rank, signature)
-                                if status:
-                                    await self.sleep_after_action()
+                                    await self.start_welcome_sign_msg(signature)
 
-                            if account_data['contractInfo']['dailyQuest'].get('nonce', False):
-                                nonce = account_data['contractInfo']['dailyQuest']['nonce']
-                                signature = account_data['contractInfo']['dailyQuest']['signature']
+                                    account_data = await self.get_account_data()
+                                    if account_data.get('contractInfo', False):
+                                        logger.success(f'{self.twitter_account} | успешно подписал сообщение и прикрепил кошелек')
+                                        await self.sleep_after_action()
+                                    else:
+                                        logger.error(f'{self.twitter_account} | не удалось подписать сообщение и прикрепить кошелек')
+                                        continue
+                                    
+                                if account_data['contractInfo']['rankupQuest'].get('currentRank', False):
+                                    current_rank = account_data['contractInfo']['rankupQuest']['currentRank']
+                                    signature = account_data['contractInfo']['rankupQuest']['signature']
+                                        
+                                    status = await self.start_rankup_quest(current_rank, signature)
+                                    if status:
+                                        await self.sleep_after_action()
 
-                                status = await self.start_daily_quest(nonce, signature)
-                                if status:
-                                    await self.sleep_after_action()
+                                if account_data['contractInfo']['dailyQuest'].get('nonce', False):
+                                    nonce = account_data['contractInfo']['dailyQuest']['nonce']
+                                    signature = account_data['contractInfo']['dailyQuest']['signature']
+
+                                    status = await self.start_daily_quest(nonce, signature)
+                                    if status:
+                                        await self.sleep_after_action()
+                            else:
+                                logger.error('Вы не добавили приватные ключи! В db pk = NONE')
                         else:
                             logger.warning(f'{self.twitter_account} | еще не зарегистирован')
                             
