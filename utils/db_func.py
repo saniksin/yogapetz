@@ -41,7 +41,8 @@ async def process_tasks(file_path, source_data):
         {"type": "update_banner", "status": "pending"},
         {"type": "retweet", "tweet_id": "1744373398934003773", "status": "completed"},
         {"type": "retweet", "tweet_id": "1745127428039847937", "status": "pending"},
-        {"type": "retweet", "tweet_id": "1745143426642030966", "status": "pending"},
+        {"type": "retweet", "tweet_id": "1745143426642030966", "status": "completed"},
+        {"type": "retweet", "tweet_id": "1749049904889213387", "status": "pending"},
     ]
 
     platform_list = [
@@ -55,7 +56,8 @@ async def process_tasks(file_path, source_data):
         {"task": "follow-gmio", "status": "pending"},
         {"task": "retweet-BNBCHAIN-1744373398934003773", "status": "completed"},
         {"task": "retweet-yogapetz-1745127428039847937", "status": "pending"},
-        {"task": "retweet-keung-1745143426642030966", "status": "pending"},
+        {"task": "retweet-keung-1745143426642030966", "status": "completed"},
+        {"task": "retweet-yogapetz-1749049904889213387", "status": "pending"},
     ]
 
     # Обновление токенов
@@ -124,16 +126,16 @@ async def process_tasks(file_path, source_data):
         # Проходим по фактической базе данных обновляем статусы неактуальных задач
         for actual_task in data['platform']:
             if not actual_task["task"].startswith('retweet') or actual_task["task"] in [
-                'retweet-keung-1745143426642030966', 
-                'retweet-yogapetz-1745127428039847937'
+                'retweet-yogapetz-1745127428039847937', 
+                'retweet-yogapetz-1749049904889213387'
             ]:
                 continue
 
             # Ищем соответствующую задачу в первоначальном списке
             for task in platform_list:
                 if not task["task"].startswith('retweet') or actual_task["task"] in [
-                'retweet-keung-1745143426642030966', 
-                'retweet-yogapetz-1745127428039847937'
+                'retweet-yogapetz-1745127428039847937', 
+                'retweet-yogapetz-1749049904889213387'
                 ]:
                     continue
 
@@ -143,23 +145,21 @@ async def process_tasks(file_path, source_data):
                             actual_task['status'] = task['status']
 
 
-        new_task = {"type": "retweet", "tweet_id": "1745127428039847937", "status": "pending"},
-        new_task2 = {"type": "retweet", "tweet_id": "1745143426642030966", "status": "pending"},
+        new_task = {"type": "retweet", "tweet_id": "1749049904889213387", "status": "pending"},
 
         if len(data['tasks']) != len(tasks_list):
             if new_task not in data['tasks']:
                 data['tasks'] += new_task
-            if new_task2 not in data['tasks']:
-                 data['tasks'] += new_task2
+            # if new_task2 not in data['tasks']:
+            #      data['tasks'] += new_task2
         
-        new_task = {"task": "retweet-keung-1745143426642030966", "status": "pending"},
-        new_task2 = {"task": "retweet-yogapetz-1745127428039847937", "status": "pending"},
+        new_task =  {"task": "retweet-yogapetz-1749049904889213387", "status": "pending"},
 
         if len(data['platform']) != len(platform_list):
             if new_task not in data['platform']:
                 data['platform'] += new_task
-            if new_task2 not in data['platform']:
-                 data['platform'] += new_task2
+            # if new_task2 not in data['platform']:
+            #      data['platform'] += new_task2
 
     await async_write_json(tasks, file_path)
 

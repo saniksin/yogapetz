@@ -82,14 +82,6 @@ class TwitterTasksCompleter:
         # if self.twitter_account_status not in ["SUSPENDED", "BAD_TOKEN"]:
         #     return
 
-        if self.twitter_account_status == "SUSPENDED":
-            await self.write_status("SUSPENDED")
-            return
-        
-        if self.twitter_account_status == "BAD_TOKEN":
-            await self.write_status("BAD_TOKEN")
-            return
-
         # Количество попыток в случае неудачи
         for num, _ in enumerate(range(NUMBER_OF_ATTEMPTS), start=1):
             try:
@@ -100,37 +92,46 @@ class TwitterTasksCompleter:
                     verify=False
                 ) as twitter:
                     
-                    self.twitter_client = twitter
-                    # Совершаем любое действие чтобы обновить статус аккаунта
-                    try:
-                        status = await self.get_name()
-                    except Unauthorized:
-                        logger.error(f'{self.twitter_account} | Не удалось авторизироваться по данному токену! Проверьте токен')
-                        self.twitter_account_status = "BAD_TOKEN"
-                        await self.write_to_db()
-                        await self.write_status(status="Unauthorized")
-                        break
-                    except Forbidden:
-                        if self.twitter_account.status != 'GOOD':
-                            logger.error(f'{self.twitter_account} | Возникла проблема с аккаунтом! Текущий статус аккаунта = {self.twitter_account.status}')
-                            if self.twitter_account.status == 'BAD_TOKEN':
-                                logger.warning(f'Неверный токен - {self.twitter_account}')
-                                self.twitter_account_status = "BAD_TOKEN"
-                                await self.write_to_db()
-                                await self.write_status(status='BAD_TOKEN')
-                                break
-                            elif self.twitter_account.status == 'SUSPENDED':
-                                logger.warning(f'Действие учетной записи приостановлено (бан)! Токен - {self.twitter_account}')
-                                await self.write_status(status='SUSPENDED')
-                                self.twitter_account_status = "SUSPENDED"
-                                await self.write_to_db()
-                                break
-                            elif self.twitter_account.status == "LOCKED":
-                                logger.warning(f'Учетная запись заморожена (лок)! Требуется прохождение капчи. Токен - {self.twitter_account}')
-                                await self.write_status(status='LOCKED')
-                                self.twitter_account_status = "LOCKED"
-                                await self.write_to_db()
-                                break
+                    if option != 5:
+                        if self.twitter_account_status == "SUSPENDED":
+                            await self.write_status("SUSPENDED")
+                            return
+                        
+                        if self.twitter_account_status == "BAD_TOKEN":
+                            await self.write_status("BAD_TOKEN")
+                            return
+
+                        self.twitter_client = twitter
+                        # Совершаем любое действие чтобы обновить статус аккаунта
+                        try:
+                            status = await self.get_name()
+                        except Unauthorized:
+                            logger.error(f'{self.twitter_account} | Не удалось авторизироваться по данному токену! Проверьте токен')
+                            self.twitter_account_status = "BAD_TOKEN"
+                            await self.write_to_db()
+                            await self.write_status(status="Unauthorized")
+                            break
+                        except Forbidden:
+                            if self.twitter_account.status != 'GOOD':
+                                logger.error(f'{self.twitter_account} | Возникла проблема с аккаунтом! Текущий статус аккаунта = {self.twitter_account.status}')
+                                if self.twitter_account.status == 'BAD_TOKEN':
+                                    logger.warning(f'Неверный токен - {self.twitter_account}')
+                                    self.twitter_account_status = "BAD_TOKEN"
+                                    await self.write_to_db()
+                                    await self.write_status(status='BAD_TOKEN')
+                                    break
+                                elif self.twitter_account.status == 'SUSPENDED':
+                                    logger.warning(f'Действие учетной записи приостановлено (бан)! Токен - {self.twitter_account}')
+                                    await self.write_status(status='SUSPENDED')
+                                    self.twitter_account_status = "SUSPENDED"
+                                    await self.write_to_db()
+                                    break
+                                elif self.twitter_account.status == "LOCKED":
+                                    logger.warning(f'Учетная запись заморожена (лок)! Требуется прохождение капчи. Токен - {self.twitter_account}')
+                                    await self.write_status(status='LOCKED')
+                                    self.twitter_account_status = "LOCKED"
+                                    await self.write_to_db()
+                                    break
 
                     if option == 1:
                         # Регистрация
@@ -1132,15 +1133,16 @@ class TwitterTasksCompleter:
     async def write_nft_stats(self, address, nft_stats, file_path=NFT_STATS):
         headers = ["address", "uncommon", "rare", "legendary", "mythical"]
 
-        file_exists = os.path.exists(file_path)
-        async with aiofiles.open(file_path, mode='a', newline='') as file:
-            if not file_exists:
-                await file.write(','.join(headers) + '\n')
+        async with self.write_lock:
+            file_exists = os.path.exists(file_path)
+            async with aiofiles.open(file_path, mode='a', newline='') as file:
+                if not file_exists:
+                    await file.write(','.join(headers) + '\n')
 
-            info = [address] + nft_stats
-            info_line = ','.join(map(str, info)) + '\n'
+                info = [address] + nft_stats
+                info_line = ','.join(map(str, info)) + '\n'
 
-            await file.write(info_line)
+                await file.write(info_line)
 
     async def nft_stats_prepere(self):
         bnb_client = EthClient(network=Networks.opBNB, private_key=self.private_key, proxy=self.account_proxy)
