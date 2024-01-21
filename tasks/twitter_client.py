@@ -192,7 +192,8 @@ class TwitterTasksCompleter:
                                                 self.account_tasks[num]['status'] = 'completed'
                                                 changed = True
                                             else:
-                                                logger.error(f'Неизвестная ошибка: {err}')
+                                                self.account_tasks[num]['status'] = 'completed'
+                                                changed = True
 
                                     elif task_type == 'update_banner':
                                         image_bytes = await self.read_image_as_base64_encoded_bytes(BANNER_IMAGE)
@@ -380,7 +381,7 @@ class TwitterTasksCompleter:
                         break
                     continue
                 
-                logger.error(f'Неизвестная ошибка: {err}')
+                logger.error(f'{self.twitter_account} | Неизвестная ошибка: {err}')
                 continue
 
             except JSONDecodeError:
@@ -436,9 +437,9 @@ class TwitterTasksCompleter:
 
     async def like_and_reetweet_quest(self, tweet_id: str):
         """ Лайкаем и делаем ретвит """
-        tweet_id = await self.twitter_client.repost(tweet_id=tweet_id)
+        tweeted_id = await self.twitter_client.repost(tweet_id=tweet_id)
         like_status = await self.twitter_client.like(tweet_id=tweet_id)
-        if like_status and tweet_id:
+        if like_status and tweeted_id:
             logger.info(f'{self.twitter_account} | Успешно лайкнул и репостнул {tweet_id}')
             return True
         return False
