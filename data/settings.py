@@ -1,6 +1,6 @@
 # СОН МЕЖДУ ДЕЙСВИЯМИ (В СЕКУНДАХ)
-SLEEP_FROM = 10 
-SLEEP_TO = 25
+SLEEP_FROM = 15
+SLEEP_TO = 30
 
 # КОЛ-ВО ПОПЫТОК
 NUMBER_OF_ATTEMPTS = 10
@@ -9,7 +9,7 @@ NUMBER_OF_ATTEMPTS = 10
 API_KEY = 'xxxxxx'
 
 # Количество акков одновременно в асинк запросах
-ASYNC_SEMAPHORE = 50
+ASYNC_SEMAPHORE = 100
 
 # WALLET min balance в WEI
 MIN_BALANCE = 33000000000000

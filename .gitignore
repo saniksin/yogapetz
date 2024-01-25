@@ -23,6 +23,7 @@ tasks_backup_*
 token_deleted.txt
 pk_deleted.txt
 proxy_deleted.txt
+zamena.txt
 
 # Исключение JSON-файлов с задачами
 status/token_db/tasks.json
@@ -42,7 +43,5 @@ test.py
 private_keys_all.txt
 accounts_all.txt
 addresses_all.txt
-tasks1.json
-tasks2.json
-tasks3.json
-tasks4.json
+tasks*.json
+status/
