@@ -62,6 +62,9 @@ async def process_tasks(file_path, source_data):
         {"task": "retweet-yogapetz-1749049904889213387", "status": "completed"},
         {"task": "retweet-yogapetz-1750523880463340019", "status": "pending"},
         {"task": "retweet-CyberKongz-1750535387095691606", "status": "pending"},
+        {"task": "share-phaver-open", "status": "pending"},
+        {"task": "share-phaver-holder", "status": "pending"},
+        {"task": "join-eesee", "status": "pending"},       
     ]
 
     # Обновление токенов
@@ -151,23 +154,26 @@ async def process_tasks(file_path, source_data):
                             actual_task['status'] = task['status']
 
 
-        new_task = {"type": "retweet", "tweet_id": "1750523880463340019", "status": "pending"},
-        new_task2 = {"type": "retweet", "tweet_id": "1750535387095691606", "status": "pending"},
+        # new_task = {"type": "retweet", "tweet_id": "1750523880463340019", "status": "pending"},
+        # new_task2 = {"type": "retweet", "tweet_id": "1750535387095691606", "status": "pending"},
 
-        if len(data['tasks']) != len(tasks_list):
-            if new_task not in data['tasks']:
-                data['tasks'] += new_task
-            if new_task2 not in data['tasks']:
-                 data['tasks'] += new_task2
+        # if len(data['tasks']) != len(tasks_list):
+        #     if new_task not in data['tasks']:
+        #         data['tasks'] += new_task
+        #     if new_task2 not in data['tasks']:
+        #          data['tasks'] += new_task2
         
-        new_task = {"task": "retweet-yogapetz-1750523880463340019", "status": "pending"},
-        new_task2 = {"task": "retweet-CyberKongz-1750535387095691606", "status": "pending"},
+        new_task = {"task": "share-phaver-open", "status": "pending"},
+        new_task2 = {"task": "share-phaver-holder", "status": "pending"},
+        new_task3 = {"task": "join-eesee", "status": "pending"},       
 
         if len(data['platform']) != len(platform_list):
             if new_task not in data['platform']:
                 data['platform'] += new_task
             if new_task2 not in data['platform']:
                  data['platform'] += new_task2
+            if new_task3 not in data['platform']:
+                 data['platform'] += new_task3
 
     await async_write_json(tasks, file_path)
 
